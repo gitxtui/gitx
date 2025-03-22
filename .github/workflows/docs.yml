@@ -1,4 +1,4 @@
-name: docs
+name: doc-site
 on:
   workflow_dispatch:
     inputs:
