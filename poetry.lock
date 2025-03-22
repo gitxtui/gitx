@@ -455,6 +455,46 @@ files = [
 ]
 
 [[package]]
+name = "material"
+version = "0.1"
+description = "UNKNOWN"
+optional = false
+python-versions = "*"
+groups = ["dev"]
+files = [
+    {file = "material-0.1.tar.gz", hash = "sha256:99a6a68527b0faff78d9ae85d3838d7eb350922f8b15d536945c515cd8418c42"},
+]
+
+[[package]]
+name = "materialx"
+version = "1.39.3"
+description = ""
+optional = false
+python-versions = ">=3.6"
+groups = ["dev"]
+files = [
+    {file = "materialx-1.39.3-cp310-cp310-macosx_10_15_x86_64.whl", hash = "sha256:34ffc6b14c8a82a729faac2fdc1ef4f58cb1215fc71da82a6a6d0136ffe581c0"},
+    {file = "materialx-1.39.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c1789ec0e6950a3de2fbb96b1f94f68f0bc0d6dd09bd363538ea82f0af88c31a"},
+    {file = "materialx-1.39.3-cp310-cp310-win_amd64.whl", hash = "sha256:bc639ebeb3d757a2467ad6fa68b5a94d34ffb15177a763b43e85deba5e69b68b"},
+    {file = "materialx-1.39.3-cp311-cp311-macosx_10_15_x86_64.whl", hash = "sha256:d83d28faf0587d051b55f6b909c1752160d37ae5d3b71cb1ad68a0da87e2e336"},
+    {file = "materialx-1.39.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e947c81af1b45a452230d7f8c324935a4b0cee433c8229514bffade8557d2095"},
+    {file = "materialx-1.39.3-cp311-cp311-win_amd64.whl", hash = "sha256:a56bd6b5ea7db0bad0b2137a5e6209b6a859234caec3fb333db0c5e27559595c"},
+    {file = "materialx-1.39.3-cp312-cp312-macosx_10_15_x86_64.whl", hash = "sha256:dadfb695fc4e8893314b656866f3b24f28a00749078a3f245da725eb51ab6961"},
+    {file = "materialx-1.39.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6513b7d746038ec423c0c01554a76dff8872d33d53706ef52536644e8b708eb9"},
+    {file = "materialx-1.39.3-cp312-cp312-win_amd64.whl", hash = "sha256:19190f5dd08f0f3fb21192db08e01bf5e36980e7111571c0c709022d97f8a0fb"},
+    {file = "materialx-1.39.3-cp37-cp37m-macosx_10_15_x86_64.whl", hash = "sha256:be15bd261b3d5a3e0a0f32d9119e39a4f6550909dd2199ae06e8b93b6325089d"},
+    {file = "materialx-1.39.3-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d06b24ce011fb55091f6e56b9ea081c3833b894eb09bbd6e07bd697f5b55c821"},
+    {file = "materialx-1.39.3-cp37-cp37m-win_amd64.whl", hash = "sha256:b038d5ab669e45f7240a06d590891bbd1e1a29d51cca0c901a7247a1015ad0f1"},
+    {file = "materialx-1.39.3-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:135c2c129425e6042f653ee56ccdb64313a633570acf70aa4d5997a998fe9edf"},
+    {file = "materialx-1.39.3-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d1812add26735c5e3b67d541729e5626a082dfe1d2434e9864ac0267105595ac"},
+    {file = "materialx-1.39.3-cp38-cp38-win_amd64.whl", hash = "sha256:0513b673b5635a9c0144a435fee4d907f5e6608f3ecfd3e428867a36874438e7"},
+    {file = "materialx-1.39.3-cp39-cp39-macosx_10_15_x86_64.whl", hash = "sha256:af0074932eaf3631a929fd260111030c1f73b8d121a04375bfad6a91090190dc"},
+    {file = "materialx-1.39.3-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d11bedc13e1fc65f7d75c9da73e41a1b7539e7bfa802dfc53e929115877f2ce0"},
+    {file = "materialx-1.39.3-cp39-cp39-win_amd64.whl", hash = "sha256:a94dfe3204ff88d1122b5e75fd7311d8108f9ad5f65c080b8d9de6f33652a569"},
+    {file = "materialx-1.39.3.tar.gz", hash = "sha256:ba908be7407f2b85aa1d80782a03ca3ce3fd7c040ce18c4e07d2e0ec27735118"},
+]
+
+[[package]]
 name = "mccabe"
 version = "0.7.0"
 description = "McCabe checker, plugin for flake8"
@@ -1056,4 +1096,4 @@ watchmedo = ["PyYAML (>=3.10)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "d90721a93d1005a13c09bf1c0421f960e13f7e86e6745689dae997c66ddec2a0"
+content-hash = "5adcb7c0e3ed4d785cedc39853ba93a2cd7acf4ae4478c6e6e1aa8034c86a609"
