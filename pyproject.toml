@@ -10,7 +10,7 @@ authors = [
 ]
 license = { text = "LICENSE" }
 readme = "README.md"
-requires-python = ">=3.10, <4.0"
+requires-python = ">=3.9, <4.0"
 dependencies = ["textual (>=2.1.2,<3.0.0)"]
 
 # [tool.poetry]
