@@ -4,7 +4,7 @@
 
 ![gitx banner placeholder](./docs/assets/images/gitx-banner.png)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Documentation](https://img.shields.io/website?label=docs&style=flat&url=https%3A%2F%2Fgitxtui.github.io%2Fgitx%2F)](https://gitxtui.github.io/gitx/) [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![Documentation Status](https://github.com/gitxtui/gitx/actions/workflows/docs.yml/badge.svg)](https://github.com/gitxtui/gitx/actions/workflows/docs.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Documentation](https://img.shields.io/website?label=docs&style=flat&url=https%3A%2F%2Fgitxtui.github.io%2Fgitx%2F)](https://gitxtui.github.io/gitx/) [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![Documentation Status](https://github.com/gitxtui/gitx/actions/workflows/docs.yml/badge.svg)](https://github.com/gitxtui/gitx/actions/workflows/docs.yml) [![CI](https://github.com/gitxtui/gitx/actions/workflows/CI.yml/badge.svg)](https://github.com/gitxtui/gitx/actions/workflows/CI.yml)
 
 A powerful Terminal User Interface (TUI) for Git that makes version control more accessible and efficient.
 
@@ -38,4 +38,4 @@ This project is currently in active development. We welcome contributions!
 
 ## 📄 License
 
-[MIT License](LICENSE)
+This project is licensed under the [MIT License](LICENSE).
