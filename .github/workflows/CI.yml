@@ -1,4 +1,4 @@
-name: lint-ci
+name: CI
 
 on:
   push:
@@ -26,5 +26,7 @@ jobs:
       - name: Lint with flake8
         run: |
           flake8 ./src/gitx/
+
+# TODO: Add build pipeline 
  
    
