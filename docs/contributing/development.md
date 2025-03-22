@@ -1,13 +1,14 @@
-# Gitx Installation Guide
+# Development Setup
 
-Installation Guide for gitx
+This guide will help you set up your development environment for contributing to gitx.
 
 ## Prerequisites
 
--   [Python](https://www.python.org/) 3.9+ (version 3.12 is recommended)
--   [Git](https://git-scm.com/) (any recent version)
+-   Python 3.12 or later
+-   Poetry for dependency management
+-   Git
 
-## Setup Guide
+## Development Installation
 
 > [!NOTE]
 > This project is currently in the development stage. This installation guide provides instructions for both using and contributing to the project.
@@ -82,3 +83,7 @@ mkdocs serve
 ```
 
 This will start a local server at http://127.0.0.1:8000/ where you can preview your documentation.
+
+---
+
+Previous: [Contribution Guidelines](guidelines.md)

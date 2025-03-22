@@ -1,0 +1,35 @@
+.md-footer-nav {
+    background-color: var(--md-primary-fg-color);
+    color: var(--md-primary-bg-color);
+}
+
+.md-footer-nav__link {
+    padding: 1rem;
+}
+
+.md-footer-nav__button {
+    margin: 0.2rem;
+}
+
+.md-footer-nav__title {
+    font-size: 1rem;
+}
+
+.md-typeset h1,
+.md-typeset h2 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+}
+
+[data-md-color-scheme="default"] .md-header__button.md-icon {
+    color: var(--md-primary-bg-color);
+}
+
+[data-md-color-scheme="slate"] .md-header__button.md-icon {
+    color: var(--md-primary-bg-color);
+}
+
+/* hover effect for navigation */
+.md-nav__link:hover {
+    text-decoration: underline;
+}

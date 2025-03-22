@@ -1,4 +1,4 @@
-site_name: gitx book
+site_name: Gitx
 site_description: TUI based git helper
 site_url: https://gitxtui.github.io/gitx/
 repo_url: https://github.com/gitxtui/gitx
@@ -7,32 +7,73 @@ repo_name: gitxtui/gitx
 theme:
   name: material
   palette:
-    - scheme: default
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
       primary: indigo
       accent: indigo
       toggle:
-        icon: material/toggle-switch-off-outline
+        icon: material/brightness-7
         name: Switch to dark mode
-    - scheme: slate
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
       primary: indigo
       accent: indigo
       toggle:
-        icon: material/toggle-switch
+        icon: material/brightness-4
         name: Switch to light mode
   features:
     - navigation.instant
     - navigation.tracking
     - navigation.expand
     - navigation.indexes
+    - navigation.top
+    - navigation.footer
     - content.code.copy
+    - toc.follow
+
+extra_css:
+  - stylesheets/extra.css
 
 markdown_extensions:
-  - pymdownx.highlight
+  - pymdownx.highlight:
+      anchor_linenums: true
   - pymdownx.superfences
   - admonition
   - pymdownx.details
-  - pymdownx.tabbed
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
+# Page tree
 nav:
   - Home: index.md
   - Installation: installation.md
+  - Usage:
+    - Getting Started: usage/getting-started.md
+    - Basic Commands: usage/basic-commands.md
+  - Tutorial:
+    - Introduction: tutorial/introduction.md
+    - Git Basics:
+      - Understanding Version Control: tutorial/basics/version-control.md
+      - Repositories: tutorial/basics/repositories.md
+      - Committing Changes: tutorial/basics/committing.md
+      - Viewing History: tutorial/basics/history.md
+    - Working with Branches:
+      - Branch Concepts: tutorial/branches/concepts.md
+      - Creating & Switching: tutorial/branches/creating-switching.md
+      - Merging: tutorial/branches/merging.md
+      - Resolving Conflicts: tutorial/branches/conflicts.md
+    - Remote Operations:
+      - Working with Remotes: tutorial/remote/remotes.md
+      - Pushing & Pulling: tutorial/remote/push-pull.md
+      - Pull Requests: tutorial/remote/pull-request.md
+    # TODO: Add more topics to Tutorial covering advanced git features, Git Workflows, GitHub, etc.
+  - Contributing: 
+    - Guidelines: contributing/guidelines.md
+    - Development Setup: contributing/development.md
