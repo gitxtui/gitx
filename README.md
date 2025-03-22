@@ -4,8 +4,7 @@
 
 ![gitx banner placeholder](./docs/assets/images/gitx-banner.png)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Documentation](https://img.shields.io/badge/docs-online-brightgreen.svg)](https://gitxtui.github.io/gitx/) [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
-[![Documentation Status](https://github.com/gitxtui/gitx/actions/workflows/docs.yml/badge.svg)](https://github.com/gitxtui/gitx/actions/workflows/docs.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Documentation](https://img.shields.io/website?label=docs&style=flat&url=https%3A%2F%2Fgitxtui.github.io%2Fgitx%2F)](https://gitxtui.github.io/gitx/) [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![Documentation Status](https://github.com/gitxtui/gitx/actions/workflows/docs.yml/badge.svg)](https://github.com/gitxtui/gitx/actions/workflows/docs.yml)
 
 A powerful Terminal User Interface (TUI) for Git that makes version control more accessible and efficient.
 
@@ -22,22 +21,11 @@ A powerful Terminal User Interface (TUI) for Git that makes version control more
 -   ⌨️ **Keyboard-Driven Workflow**: Optimized for keyboard shortcuts
 -   🚀 **Fast and Responsive**: Built for speed with minimal resource usage
 
-## 🚀 Quick Start
-
-```bash
-# Install with pip
-pip install gitx
-
-# Navigate to a git repository
-cd your-repo
-
-# Launch gitx
-gitx
-```
+<!-- TODO: Add Quick Start Section once packaging is enabled -->
 
 ## 📚 Documentation
 
-Visit our [comprehensive documentation](https://gitxtui.github.io/gitx/) for:
+Refer our [comprehensive documentation](https://gitxtui.github.io/gitx/) for:
 
 -   [Installation Guide](https://gitxtui.github.io/gitx/installation/)
 -   [Getting Started](https://gitxtui.github.io/gitx/usage/getting-started/)
