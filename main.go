@@ -9,4 +9,4 @@ func main() {
 	if err := tview.NewApplication().SetRoot(box, true).Run(); err != nil {
 		panic(err)
 	}
-
+}
