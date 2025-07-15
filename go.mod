@@ -1,4 +1,4 @@
-module github.com/bakayu/gogit
+module github.com/gitxtui/gitx
 
 go 1.23
 
