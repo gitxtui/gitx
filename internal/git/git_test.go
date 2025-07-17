@@ -37,8 +37,12 @@ func setupTestRepo(t *testing.T) (string, func()) {
 	}
 
 	cleanup := func() {
-		os.Chdir(originalDir)
-		os.RemoveAll(tempDir)
+		if err := os.Chdir(originalDir); err != nil {
+			t.Fatalf("failed to change back to original directory: %v", err)
+		}
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("failed to remove temp dir: %v", err)
+		}
 	}
 
 	return tempDir, cleanup
@@ -69,11 +73,24 @@ func TestGitCommands_InitRepository(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("failed to remove temp dir: %v", err)
+		}
+	}()
 
-	originalDir, _ := os.Getwd()
-	os.Chdir(tempDir)
-	defer os.Chdir(originalDir)
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current working directory: %v", err)
+	}
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("failed to change to temp dir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Fatalf("failed to change back to original directory: %v", err)
+		}
+	}()
 
 	g := NewGitCommands()
 	repoPath := "test-repo"
