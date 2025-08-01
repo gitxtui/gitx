@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/gitxtui/gitx/internal/tui"
+	"github.com/gitxtui/gitx/internal/git/internal/tui"
 )
 
 func main() {
