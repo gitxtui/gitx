@@ -1,4 +1,4 @@
-module github.com/gitxtui/gitx/internal/git
+module github.com/gitxtui/gitx
 
 go 1.23.0
 
