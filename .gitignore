@@ -33,3 +33,5 @@ go.work.sum
 
 /gitx
 /gitx.exe
+
+build/
