@@ -13,7 +13,7 @@ sync:
 	@echo "Dependencies synced."
 
 # Builds the binary
-build:
+build: sync
 	@echo "Building the application..."
 	@mkdir -p $(BUILD_DIR)
 	@go build -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_PATH)
