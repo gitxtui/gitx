@@ -6,6 +6,12 @@ BUILD_DIR=./build
 # Default target executed when you run `make`
 all: build
 
+# Syncs dependencies
+sync:
+	@echo "Syncing dependencies..."
+	@go mod tidy
+	@echo "Dependencies synced."
+
 # Builds the binary
 build:
 	@echo "Building the application..."
