@@ -17,6 +17,15 @@ func setupTestRepo(t *testing.T) (string, func()) {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 
+	// Create a temporary home directory to isolate from global git config
+	tempHome, err := os.MkdirTemp("", "git-home-")
+	if err != nil {
+		t.Fatalf("failed to create temp home dir: %v", err)
+	}
+
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tempHome)
+
 	originalDir, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to get current working directory: %v", err)
@@ -43,6 +52,10 @@ func setupTestRepo(t *testing.T) (string, func()) {
 		if err := os.RemoveAll(tempDir); err != nil {
 			t.Logf("failed to remove temp dir: %v", err)
 		}
+		if err := os.RemoveAll(tempHome); err != nil {
+			t.Logf("failed to remove temp home dir: %v", err)
+		}
+		os.Setenv("HOME", originalHome)
 	}
 
 	return tempDir, cleanup
@@ -184,7 +197,7 @@ func TestGitCommands_Commit(t *testing.T) {
 	if err := g.AddFiles([]string{"commit-test.txt"}); err != nil {
 		t.Fatalf("failed to add amended file: %v", err)
 	}
-	if err := g.Commit(CommitOptions{Amend: true}); err != nil {
+	if err := g.Commit(CommitOptions{Amend: true, Message: "Amended commit"}); err != nil {
 		t.Errorf("Commit() with amend failed: %v", err)
 	}
 }
@@ -288,6 +301,12 @@ func runGitConfig(dir string) error {
 		return err
 	}
 	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	// Disable GPG signing for commits
+	cmd = exec.Command("git", "config", "commit.gpgsign", "false")
 	cmd.Dir = dir
 	return cmd.Run()
 }
