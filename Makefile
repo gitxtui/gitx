@@ -19,6 +19,11 @@ build: sync
 	@go build -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_PATH)
 	@echo "Binary available at $(BUILD_DIR)/$(BINARY_NAME)"
 
+# Runs the application
+run: build
+	@echo "Running $(BINARY_NAME)..."
+	@$(BUILD_DIR)/$(BINARY_NAME)
+
 # Runs all tests
 test:
 	@echo "Running tests..."
