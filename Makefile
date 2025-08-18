@@ -29,6 +29,11 @@ test:
 	@echo "Running tests..."
 	@go test -v ./...
 
+# Runs golangci-lint
+ci:
+	@echo "Running golangci-lint..."
+	@golangci-lint run
+
 # Installs the binary to /usr/local/bin
 install: build
 	@echo "Installing $(BINARY_NAME)..."
@@ -42,4 +47,4 @@ clean:
 	@echo "Cleanup complete."
 
 #PHONY targets are not files
-.PHONY: all build test install clean
+.PHONY: all sync build run test ci install clean
