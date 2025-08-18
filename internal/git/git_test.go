@@ -2,78 +2,10 @@ package git
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
-
-// setupTestRepo creates a new temporary directory, initializes a git repository,
-// and returns a cleanup function to be deferred.
-func setupTestRepo(t *testing.T) (string, func()) {
-	t.Helper()
-	tempDir, err := os.MkdirTemp("", "git-test-")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
-
-	// Create a temporary home directory to isolate from global git config
-	tempHome, err := os.MkdirTemp("", "git-home-")
-	if err != nil {
-		t.Fatalf("failed to create temp home dir: %v", err)
-	}
-
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tempHome)
-
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get current working directory: %v", err)
-	}
-
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change to temp dir: %v", err)
-	}
-
-	g := NewGitCommands()
-	if err := g.InitRepository(""); err != nil {
-		t.Fatalf("failed to initialize git repository: %v", err)
-	}
-
-	// Configure git user for commits
-	if err := runGitConfig(tempDir); err != nil {
-		t.Fatalf("failed to set git config: %v", err)
-	}
-
-	cleanup := func() {
-		if err := os.Chdir(originalDir); err != nil {
-			t.Fatalf("failed to change back to original directory: %v", err)
-		}
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Logf("failed to remove temp dir: %v", err)
-		}
-		if err := os.RemoveAll(tempHome); err != nil {
-			t.Logf("failed to remove temp home dir: %v", err)
-		}
-		os.Setenv("HOME", originalHome)
-	}
-
-	return tempDir, cleanup
-}
-
-// createAndCommitFile creates a file with content and commits it.
-func createAndCommitFile(t *testing.T, g *GitCommands, filename, content, message string) {
-	t.Helper()
-	if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
-		t.Fatalf("failed to create test file %s: %v", filename, err)
-	}
-	if err := g.AddFiles([]string{filename}); err != nil {
-		t.Fatalf("failed to add file %s: %v", filename, err)
-	}
-	if err := g.Commit(CommitOptions{Message: message}); err != nil {
-		t.Fatalf("failed to commit file %s: %v", filename, err)
-	}
-}
 
 func TestNewGitCommands(t *testing.T) {
 	if g := NewGitCommands(); g == nil {
@@ -107,8 +39,13 @@ func TestGitCommands_InitRepository(t *testing.T) {
 
 	g := NewGitCommands()
 	repoPath := "test-repo"
-	if err := g.InitRepository(repoPath); err != nil {
+	output, err := g.InitRepository(repoPath)
+	if err != nil {
 		t.Fatalf("InitRepository() failed: %v", err)
+	}
+
+	if !strings.Contains(output, "Initialized empty Git repository") {
+		t.Errorf("expected success message, got: %s", output)
 	}
 
 	if _, err := os.Stat(filepath.Join(repoPath, ".git")); os.IsNotExist(err) {
@@ -117,13 +54,39 @@ func TestGitCommands_InitRepository(t *testing.T) {
 }
 
 func TestGitCommands_CloneRepository(t *testing.T) {
+	// 1. Arrange: Set up a source "remote" repository
+	remotePath, cleanup := setupRemoteRepo(t)
+	defer cleanup()
+
+	// Set up a destination directory for the clone
+	localPath, err := os.MkdirTemp("", "git-local-")
+	if err != nil {
+		t.Fatalf("failed to create local repo dir: %v", err)
+	}
+	defer os.RemoveAll(localPath)
+
+	// 2. Act: Perform the clone
 	g := NewGitCommands()
-	err := g.CloneRepository("invalid-url", "")
+	output, err := g.CloneRepository(remotePath, localPath)
+	if err != nil {
+		t.Fatalf("CloneRepository() failed: %v", err)
+	}
+
+	// 3. Assert: Verify the results
+	if !strings.Contains(output, "Successfully cloned repository") {
+		t.Errorf("expected success message, got: %s", output)
+	}
+	if _, err := os.Stat(filepath.Join(localPath, ".git")); os.IsNotExist(err) {
+		t.Error("expected .git directory to exist in cloned repo")
+	}
+	if _, err := os.Stat(filepath.Join(localPath, "testfile.txt")); os.IsNotExist(err) {
+		t.Error("expected cloned file to exist in cloned repo")
+	}
+
+	// Test failure case
+	_, err = g.CloneRepository("invalid-url", "")
 	if err == nil {
 		t.Error("CloneRepository() with invalid URL should have failed, but did not")
-	}
-	if !strings.Contains(err.Error(), "failed to clone repository") {
-		t.Errorf("expected clone error, got: %v", err)
 	}
 }
 
@@ -134,16 +97,24 @@ func TestGitCommands_Status(t *testing.T) {
 	g := NewGitCommands()
 
 	// Test on a clean repo
-	if err := g.ShowStatus(); err != nil {
-		t.Errorf("ShowStatus() on clean repo failed: %v", err)
+	status, err := g.GetStatus()
+	if err != nil {
+		t.Errorf("GetStatus() on clean repo failed: %v", err)
+	}
+	if !strings.Contains(status, "nothing to commit, working tree clean") {
+		t.Errorf("expected clean status, got: %s", status)
 	}
 
 	// Test with a new file
 	if err := os.WriteFile("new-file.txt", []byte("content"), 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
-	if err := g.ShowStatus(); err != nil {
-		t.Errorf("ShowStatus() with new file failed: %v", err)
+	status, err = g.GetStatus()
+	if err != nil {
+		t.Errorf("GetStatus() with new file failed: %v", err)
+	}
+	if !strings.Contains(status, "Untracked files") {
+		t.Errorf("expected untracked file status, got: %s", status)
 	}
 }
 
@@ -152,10 +123,15 @@ func TestGitCommands_Log(t *testing.T) {
 	defer cleanup()
 
 	g := NewGitCommands()
-	createAndCommitFile(t, g, "log-test.txt", "content", "Initial commit for log test")
+	commitMessage := "Initial commit for log test"
+	createAndCommitFile(t, g, "log-test.txt", "content", commitMessage)
 
-	if err := g.ShowLog(LogOptions{}); err != nil {
+	log, err := g.ShowLog(LogOptions{})
+	if err != nil {
 		t.Errorf("ShowLog() failed: %v", err)
+	}
+	if !strings.Contains(log, commitMessage) {
+		t.Errorf("expected log to contain commit message, got: %s", log)
 	}
 }
 
@@ -171,8 +147,12 @@ func TestGitCommands_Diff(t *testing.T) {
 		t.Fatalf("failed to modify test file: %v", err)
 	}
 
-	if err := g.ShowDiff(DiffOptions{}); err != nil {
+	diff, err := g.ShowDiff(DiffOptions{})
+	if err != nil {
 		t.Errorf("ShowDiff() failed: %v", err)
+	}
+	if !strings.Contains(diff, "+modified") {
+		t.Errorf("expected diff to show added line, got: %s", diff)
 	}
 }
 
@@ -183,7 +163,7 @@ func TestGitCommands_Commit(t *testing.T) {
 	g := NewGitCommands()
 
 	// Test empty commit message
-	if err := g.Commit(CommitOptions{}); err == nil {
+	if _, err := g.Commit(CommitOptions{}); err == nil {
 		t.Error("Commit() with empty message should fail")
 	}
 
@@ -194,10 +174,10 @@ func TestGitCommands_Commit(t *testing.T) {
 	if err := os.WriteFile("commit-test.txt", []byte("amended content"), 0644); err != nil {
 		t.Fatalf("failed to amend test file: %v", err)
 	}
-	if err := g.AddFiles([]string{"commit-test.txt"}); err != nil {
+	if _, err := g.AddFiles([]string{"commit-test.txt"}); err != nil {
 		t.Fatalf("failed to add amended file: %v", err)
 	}
-	if err := g.Commit(CommitOptions{Amend: true, Message: "Amended commit"}); err != nil {
+	if _, err := g.Commit(CommitOptions{Amend: true, Message: "Amended commit"}); err != nil {
 		t.Errorf("Commit() with amend failed: %v", err)
 	}
 }
@@ -212,23 +192,96 @@ func TestGitCommands_BranchAndCheckout(t *testing.T) {
 	branchName := "feature-branch"
 
 	// Create branch
-	if err := g.ManageBranch(BranchOptions{Create: true, Name: branchName}); err != nil {
+	if _, err := g.ManageBranch(BranchOptions{Create: true, Name: branchName}); err != nil {
 		t.Fatalf("ManageBranch() create failed: %v", err)
 	}
 
 	// Checkout branch
-	if err := g.Checkout(branchName); err != nil {
+	if _, err := g.Checkout(branchName); err != nil {
 		t.Fatalf("Checkout() failed: %v", err)
 	}
 
 	// Switch back to main/master
-	if err := g.Switch("master"); err != nil {
+	if _, err := g.Switch("master"); err != nil {
 		t.Fatalf("Switch() failed: %v", err)
 	}
 
 	// Delete branch
-	if err := g.ManageBranch(BranchOptions{Delete: true, Name: branchName}); err != nil {
+	if _, err := g.ManageBranch(BranchOptions{Delete: true, Name: branchName}); err != nil {
 		t.Fatalf("ManageBranch() delete failed: %v", err)
+	}
+}
+
+func TestGitCommands_Merge(t *testing.T) {
+	// Setup: Create a repo with two branches and diverging commits
+	_, cleanup := setupTestRepo(t)
+	defer cleanup()
+	g := NewGitCommands()
+
+	// Create and commit on master
+	createAndCommitFile(t, g, "master.txt", "master content", "master commit")
+
+	// Create feature branch and commit
+	branchName := "feature"
+	if _, err := g.ManageBranch(BranchOptions{Create: true, Name: branchName}); err != nil {
+		t.Fatalf("failed to create branch: %v", err)
+	}
+	if _, err := g.Checkout(branchName); err != nil {
+		t.Fatalf("failed to checkout branch: %v", err)
+	}
+	createAndCommitFile(t, g, "feature.txt", "feature content", "feature commit")
+
+	// Switch back to master and make another commit
+	if _, err := g.Checkout("master"); err != nil {
+		t.Fatalf("failed to checkout master: %v", err)
+	}
+	createAndCommitFile(t, g, "master2.txt", "master2 content", "master2 commit")
+
+	// Merge feature branch into master
+	output, err := g.Merge(MergeOptions{BranchName: branchName})
+	if err != nil {
+		t.Fatalf("Merge() failed: %v\nOutput: %s", err, output)
+	}
+	if !strings.Contains(output, "Merge made by") && !strings.Contains(output, "Already up to date") && !strings.Contains(output, "Fast-forward") {
+		t.Errorf("expected merge output, got: %s", output)
+	}
+}
+
+func TestGitCommands_Rebase(t *testing.T) {
+	// Setup: Create a repo with two branches and diverging commits
+	_, cleanup := setupTestRepo(t)
+	defer cleanup()
+	g := NewGitCommands()
+
+	// Create and commit on master
+	createAndCommitFile(t, g, "master.txt", "master content", "master commit")
+
+	// Create feature branch and commit
+	branchName := "feature"
+	if _, err := g.ManageBranch(BranchOptions{Create: true, Name: branchName}); err != nil {
+		t.Fatalf("failed to create branch: %v", err)
+	}
+	if _, err := g.Checkout(branchName); err != nil {
+		t.Fatalf("failed to checkout branch: %v", err)
+	}
+	createAndCommitFile(t, g, "feature.txt", "feature content", "feature commit")
+
+	// Switch back to master and make another commit
+	if _, err := g.Checkout("master"); err != nil {
+		t.Fatalf("failed to checkout master: %v", err)
+	}
+	createAndCommitFile(t, g, "master2.txt", "master2 content", "master2 commit")
+
+	// Switch to feature branch and rebase onto master
+	if _, err := g.Checkout(branchName); err != nil {
+		t.Fatalf("failed to checkout feature branch: %v", err)
+	}
+	output, err := g.Rebase(RebaseOptions{BranchName: "master"})
+	if err != nil {
+		t.Fatalf("Rebase() failed: %v\nOutput: %s", err, output)
+	}
+	if !strings.Contains(output, "Successfully rebased") && !strings.Contains(output, "Fast-forwarded") && !strings.Contains(output, "Applying") {
+		t.Errorf("expected rebase output, got: %s", output)
 	}
 }
 
@@ -243,17 +296,17 @@ func TestGitCommands_FileOperations(t *testing.T) {
 	if err := os.WriteFile("new-file.txt", []byte("new"), 0644); err != nil {
 		t.Fatalf("failed to create new file: %v", err)
 	}
-	if err := g.AddFiles([]string{"new-file.txt"}); err != nil {
+	if _, err := g.AddFiles([]string{"new-file.txt"}); err != nil {
 		t.Errorf("AddFiles() failed: %v", err)
 	}
 
 	// Test Reset
-	if err := g.ResetFiles([]string{"new-file.txt"}); err != nil {
+	if _, err := g.ResetFiles([]string{"new-file.txt"}); err != nil {
 		t.Errorf("ResetFiles() failed: %v", err)
 	}
 
 	// Test Remove
-	if err := g.RemoveFiles([]string{"file-ops.txt"}, false); err != nil {
+	if _, err := g.RemoveFiles([]string{"file-ops.txt"}, false); err != nil {
 		t.Errorf("RemoveFiles() failed: %v", err)
 	}
 	if _, err := os.Stat("file-ops.txt"); !os.IsNotExist(err) {
@@ -262,7 +315,7 @@ func TestGitCommands_FileOperations(t *testing.T) {
 
 	// Test Move
 	createAndCommitFile(t, g, "source.txt", "move content", "Commit for move test")
-	if err := g.MoveFile("source.txt", "destination.txt"); err != nil {
+	if _, err := g.MoveFile("source.txt", "destination.txt"); err != nil {
 		t.Errorf("MoveFile() failed: %v", err)
 	}
 	if _, err := os.Stat("destination.txt"); os.IsNotExist(err) {
@@ -283,30 +336,12 @@ func TestGitCommands_Stash(t *testing.T) {
 	}
 
 	// Stash push
-	if err := g.Stash(StashOptions{Push: true, Message: "test stash"}); err != nil {
+	if _, err := g.Stash(StashOptions{Push: true, Message: "test stash"}); err != nil {
 		t.Fatalf("Stash() push failed: %v", err)
 	}
 
 	// Stash apply
-	if err := g.Stash(StashOptions{Apply: true}); err != nil {
+	if _, err := g.Stash(StashOptions{Apply: true}); err != nil {
 		t.Errorf("Stash() apply failed: %v", err)
 	}
-}
-
-// Helper function to set git config for tests
-func runGitConfig(dir string) error {
-	cmd := exec.Command("git", "config", "user.name", "Test User")
-	cmd.Dir = dir
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	cmd = exec.Command("git", "config", "user.email", "test@example.com")
-	cmd.Dir = dir
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	// Disable GPG signing for commits
-	cmd = exec.Command("git", "config", "commit.gpgsign", "false")
-	cmd.Dir = dir
-	return cmd.Run()
 }
