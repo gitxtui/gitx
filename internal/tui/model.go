@@ -2,6 +2,7 @@ package tui
 
 import (
 	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -38,4 +39,15 @@ func (m Model) Init() tea.Cmd {
 func (m *Model) nextTheme() {
 	m.themeIndex = (m.themeIndex + 1) % len(m.themeNames)
 	m.theme = Themes[m.themeNames[m.themeIndex]]
+}
+
+// panelShortHelp returns a slice of key.Binding for the focused Panel.
+func (m *Model) panelShortHelp() []key.Binding {
+	switch m.focusedPanel {
+	case FilesPanel:
+		return keys.FilesPanelHelp()
+	// TODO: Add cases for rest of the Panels
+	default:
+		return keys.ShortHelp()
+	}
 }

@@ -1,8 +1,10 @@
 package tui
 
 import (
+	"reflect"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -117,8 +119,54 @@ func TestModel_Update(t *testing.T) {
 	}
 }
 
+func TestModel_contextualHelp(t *testing.T) {
+	keys = DefaultKeyMap()
+
+	testCases := []struct {
+		name         string
+		focusedPanel Panel
+		expectedKeys []key.Binding
+	}{
+		{
+			name:         "Main Panel Help",
+			focusedPanel: MainPanel,
+			expectedKeys: keys.ShortHelp(),
+		},
+		{
+			name:         "Status Panel Help",
+			focusedPanel: StatusPanel,
+			expectedKeys: keys.ShortHelp(),
+		},
+		{
+			name:         "Files Panel Help",
+			focusedPanel: FilesPanel,
+			expectedKeys: []key.Binding{keys.StageItem, keys.StageAll, keys.FocusNext, keys.Help, keys.Quit},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := initialModel()
+			m.focusedPanel = tc.focusedPanel
+
+			gotKeys := m.panelShortHelp()
+
+			assertKeyBindingsEqual(t, gotKeys, tc.expectedKeys)
+		})
+	}
+}
+
+// assertPanel is a helper to compare focused panels.
 func assertPanel(t testing.TB, got, want Panel) {
 	if got != want {
-		t.Errorf("nextPanel() failed: got %v, want %v", got, want)
+		t.Errorf("got %v\nwant %v", got, want)
+	}
+}
+
+// assertKeyBindingsEqual is a helper to compare two slices of key.Binding.
+func assertKeyBindingsEqual(t testing.TB, got, want []key.Binding) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("\n\tgot \t%v\n\twant \t%v", got, want)
 	}
 }

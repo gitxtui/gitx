@@ -21,7 +21,7 @@ func (m Model) View() string {
 	leftPanels := m.renderVerticalPanels(
 		leftPanelTitles,
 		leftSectionRenderedWidth,
-		m.height,
+		m.height-1,
 		[]Panel{StatusPanel, FilesPanel, BranchesPanel, CommitsPanel, StashPanel},
 	)
 
@@ -30,12 +30,16 @@ func (m Model) View() string {
 	rightPanels := m.renderVerticalPanels(
 		rightPanelTitles,
 		rightSectionRenderedWidth,
-		m.height,
+		m.height-1,
 		[]Panel{MainPanel, SecondaryPanel},
 	)
 
 	// --- Final Layout ---
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftPanels, rightPanels)
+	content := lipgloss.JoinHorizontal(lipgloss.Top, leftPanels, rightPanels)
+	helpBindings := m.panelShortHelp()
+	helpPanel := m.help.ShortHelpView(helpBindings)
+
+	return lipgloss.JoinVertical(lipgloss.Bottom, content, helpPanel)
 }
 
 // renderVerticalPanels renders a stack of vertical panels.
@@ -77,7 +81,13 @@ func (m Model) renderPanel(title string, width, height int, panelType Panel) str
 	panelStyle = panelStyle.Width(width - panelStyle.GetHorizontalBorderSize()).Height(height - panelStyle.GetVerticalBorderSize())
 
 	// Create the title bar
-	titleBar := titleStyle.Width(width - panelStyle.GetHorizontalBorderSize()).Render(" " + title)
+	var formattedTitle string
+	if panelType == SecondaryPanel {
+		formattedTitle = title
+	} else {
+		formattedTitle = fmt.Sprintf("[%d] %s", int(panelType), title)
+	}
+	titleBar := titleStyle.Width(width - panelStyle.GetHorizontalBorderSize()).Render(" " + formattedTitle)
 
 	// Placeholder for content
 	content := m.theme.NormalText.Render(fmt.Sprintf("This is the %s panel.", title))
