@@ -9,6 +9,7 @@ type Theme struct {
 	ActiveTitle   lipgloss.Style
 	InactiveTitle lipgloss.Style
 	NormalText    lipgloss.Style
+	HelpTitle     lipgloss.Style
 }
 
 // Themes holds all the available themes.
@@ -28,6 +29,9 @@ var Themes = map[string]Theme{
 			Foreground(lipgloss.Color("#cad3f5")), // Text
 		NormalText: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#cad3f5")), // Text
+		HelpTitle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#f5c2e7")).
+			Bold(true),
 	},
 	"Dracula": {
 		ActivePanel: lipgloss.NewStyle().

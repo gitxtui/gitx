@@ -140,7 +140,7 @@ func TestModel_contextualHelp(t *testing.T) {
 		{
 			name:         "Files Panel Help",
 			focusedPanel: FilesPanel,
-			expectedKeys: []key.Binding{keys.StageItem, keys.StageAll, keys.FocusNext, keys.Help, keys.Quit},
+			expectedKeys: []key.Binding{keys.StageItem, keys.StageAll, keys.FocusNext, keys.ToggleHelp, keys.Escape, keys.Quit},
 		},
 	}
 
@@ -154,6 +154,47 @@ func TestModel_contextualHelp(t *testing.T) {
 			assertKeyBindingsEqual(t, gotKeys, tc.expectedKeys)
 		})
 	}
+}
+
+func TestModel_HelpToggle(t *testing.T) {
+	t.Run("toggles help when '?' is pressed", func(t *testing.T) {
+		m := initialModel()
+		helpKey := key.NewBinding(key.WithKeys("?"))
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")}
+		updatedModel, _ := m.Update(msg)
+		m = updatedModel.(Model)
+
+		if !m.showHelp {
+			t.Errorf("showHelp should be true after pressing '%s', but got %t", helpKey.Keys()[0], m.showHelp)
+		}
+	})
+
+	t.Run("closes help window if open and '?' is pressed", func(t *testing.T) {
+		m := initialModel()
+		helpKey := key.NewBinding(key.WithKeys("?"))
+		m.showHelp = true
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")}
+		updatedModel, _ := m.Update(msg)
+		m = updatedModel.(Model)
+
+		if m.showHelp {
+			t.Errorf("showHelp should be false after pressing '%s', but got %t", helpKey.Keys()[0], m.showHelp)
+		}
+	})
+
+	t.Run("does not quit the app when 'q' is pressed while help window is open", func(t *testing.T) {
+		m := initialModel()
+		m.showHelp = true
+
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")}
+		_, cmd := m.Update(msg)
+
+		if cmd != nil {
+			t.Errorf("Update should not return a quit command when closing the help view, but it did")
+		}
+	})
 }
 
 // assertPanel is a helper to compare focused panels.

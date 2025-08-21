@@ -3,6 +3,7 @@ package tui
 import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -15,6 +16,8 @@ type Model struct {
 	themeIndex   int
 	focusedPanel Panel
 	help         help.Model
+	helpViewport viewport.Model
+	helpContent  string
 	showHelp     bool
 }
 
@@ -26,6 +29,7 @@ func initialModel() Model {
 		themeIndex:   0,
 		focusedPanel: MainPanel,
 		help:         help.New(),
+		helpViewport: viewport.New(0, 0),
 		showHelp:     false,
 	}
 }

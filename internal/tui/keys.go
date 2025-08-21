@@ -5,8 +5,9 @@ import "github.com/charmbracelet/bubbles/key"
 // KeyMap defines the keybindings for the application.
 type KeyMap struct {
 	// miscellaneous keybindings
-	Quit key.Binding
-	Help key.Binding
+	Quit       key.Binding
+	Escape     key.Binding
+	ToggleHelp key.Binding
 
 	// keybindings for changing theme
 	SwitchTheme key.Binding
@@ -30,22 +31,20 @@ type KeyMap struct {
 // help for all keybindings
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		// Navigation Help
-		{k.FocusNext, k.FocusPrev, k.FocusZero, k.FocusOne},
-		{k.FocusTwo, k.FocusThree, k.FocusFour, k.FocusFive},
-
-		// FilesPanel help
-		{k.StageItem},
-		{k.StageAll},
-
-		// Misc commands help
-		{k.SwitchTheme, k.Help, k.Quit},
+		// Navigation
+		{k.FocusNext, k.FocusPrev},
+		// Panel Focus
+		{k.FocusZero, k.FocusOne, k.FocusTwo, k.FocusThree, k.FocusFour, k.FocusFive},
+		// File Actions
+		{k.StageItem, k.StageAll},
+		// Misc Actions
+		{k.SwitchTheme, k.ToggleHelp, k.Quit},
 	}
 }
 
 // ShortHelp returns a slice of key.Binding containing help for default keybindings
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.FocusNext, k.Help, k.Quit}
+	return []key.Binding{k.FocusNext, k.ToggleHelp, k.Escape, k.Quit}
 }
 
 // FilesPanelHelp returns a slice of key.Binding containing help for keybindings related to Files Panel
@@ -62,7 +61,11 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("q", "ctrl+c"),
 			key.WithHelp("q", "quit"),
 		),
-		Help: key.NewBinding(
+		Escape: key.NewBinding(
+			key.WithKeys("escape"),
+			key.WithHelp("esc", "cancel"),
+		),
+		ToggleHelp: key.NewBinding(
 			key.WithKeys("?"),
 			key.WithHelp("?", "toggle help"),
 		),
