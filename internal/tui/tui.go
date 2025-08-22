@@ -13,7 +13,7 @@ type App struct {
 func NewApp() *App {
 	model := initialModel()
 	// Use WithAltScreen to have a dedicated screen for the TUI.
-	program := tea.NewProgram(model, tea.WithAltScreen())
+	program := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	return &App{program: program}
 }
 

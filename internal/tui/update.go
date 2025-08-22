@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	zone "github.com/lrstanley/bubblezone"
 )
 
 // keys is a package-level variable that holds the application's keybindings.
@@ -24,7 +25,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.help.Width = msg.Width
 		// Recalculate the dimensions of the help viewport.
 		m.helpViewport.Width = int(float64(m.width) * 0.5)
-		m.helpViewport.Height = int(float64(m.height) * 0.75)
+		m.helpViewport.Height = int(float64(m.height) * 0.5)
+
+	// Handle mouse inputs.
+	case tea.MouseMsg:
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			m.helpViewport.ScrollUp(1)
+			return m, nil
+		case tea.MouseButtonWheelDown:
+			m.helpViewport.ScrollDown(1)
+			return m, nil
+		case tea.MouseButtonLeft:
+			if msg.Action == tea.MouseActionRelease {
+				// toggle help view when clicking on help bar
+				if zone.Get("help-button").InBounds(msg) {
+					m.toggleHelp()
+					return m, nil
+				}
+
+				// handle focused Panel with mouse clicks
+				for i := range totalPanels {
+					if zone.Get(i.ID()).InBounds(msg) {
+						m.focusedPanel = i
+						break
+					}
+				}
+			}
+		}
 
 	// Handle keyboard input.
 	case tea.KeyMsg:
@@ -38,7 +66,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch {
 			case key.Matches(msg, keys.Quit), key.Matches(msg, keys.ToggleHelp), key.Matches(msg, keys.Escape):
 				m.showHelp = false
+				return m, nil
+			case key.Matches(msg, keys.SwitchTheme):
+				m.nextTheme()
+				m.styleHelpViewContent()
 			}
+
 			return m, tea.Batch(cmds...)
 		}
 
@@ -48,25 +81,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case key.Matches(msg, keys.ToggleHelp):
-			m.showHelp = true
-			// Generate and style the help content when the view is opened.
-			m.helpContent = m.generateHelpContent()
-			m.helpViewport.SetContent(m.helpContent)
-			m.helpViewport.Style = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(m.theme.ActivePanel.GetBorderTopForeground()).
-				Padding(1, 2)
-			m.helpViewport.GotoTop()
+			m.toggleHelp()
 
 		case key.Matches(msg, keys.SwitchTheme):
 			m.nextTheme()
-			// Regenerate help content to apply new theme colors.
-			m.helpContent = m.generateHelpContent()
-			m.helpViewport.SetContent(m.helpContent)
-			m.helpViewport.Style = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(m.theme.ActivePanel.GetBorderTopForeground()).
-				Padding(1, 2)
 
 		// Handle panel focus navigation.
 		case key.Matches(msg, keys.FocusNext):
@@ -100,4 +118,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Batch and return any commands that were generated.
 	return m, tea.Batch(cmds...)
+}
+
+// toggleHelp toggles the visibility of the help view and prepares its content.
+func (m *Model) toggleHelp() {
+	m.showHelp = !m.showHelp
+	if m.showHelp {
+		m.styleHelpViewContent()
+	}
+}
+
+// styleHelpViewContent refreshes the styles the content of Help View, useful when changing theme.
+func (m *Model) styleHelpViewContent() {
+	m.helpContent = m.generateHelpContent()
+	m.helpViewport.SetContent(m.helpContent)
+	m.helpViewport.Style = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(m.theme.ActivePanel.GetBorderTopForeground()).
+		Padding(1, 2)
+	m.helpViewport.GotoTop()
 }

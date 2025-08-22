@@ -1,5 +1,7 @@
 package tui
 
+import "fmt"
+
 // Panel represents a section of the UI.
 type Panel int
 
@@ -13,6 +15,10 @@ const (
 	SecondaryPanel
 	totalPanels
 )
+
+func (p Panel) ID() string {
+	return fmt.Sprintf("panel-%d", p)
+}
 
 // nextPanel shifts focus to the next Panel.
 func (m *Model) nextPanel() {

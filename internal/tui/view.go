@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
+	zone "github.com/lrstanley/bubblezone"
 )
 
 // View is the main render function for the application, called by the Bubble Tea
@@ -17,6 +18,9 @@ func (m Model) View() string {
 }
 
 // renderMainView renders the primary user interface, consisting of multiple panels
+// and a short help bar at the bottom. After assembling the final view, it scans
+// the output for bubblezone markers, which updates the internal map of clickable
+// areas to enable mouse support.
 // and a short help bar at the bottom.
 func (m Model) renderMainView() string {
 	// If the terminal size has not been determined yet, show a loading message.
@@ -48,21 +52,24 @@ func (m Model) renderMainView() string {
 
 	// Assemble the final view by joining the sections and adding the help bar.
 	content := lipgloss.JoinHorizontal(lipgloss.Top, leftPanels, rightPanels)
-	helpBindings := m.panelShortHelp()
-	helpBar := m.help.ShortHelpView(helpBindings)
+	helpBar := m.renderHelpBar()
 
-	return lipgloss.JoinVertical(lipgloss.Bottom, content, helpBar)
+	finalView := lipgloss.JoinVertical(lipgloss.Bottom, content, helpBar)
+
+	zone.Scan(finalView)
+
+	return finalView
 }
 
 // renderHelpView renders the full-screen help menu. It centers the
 // pre-rendered help content within the terminal window.
 func (m Model) renderHelpView() string {
-	// The viewport's content and style are set in the Update function.
-	// Here, we just call its View() method to get the rendered string.
 	styledHelp := m.helpViewport.View()
 
 	// Place the rendered help content in the center of the screen.
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, styledHelp)
+	centeredHelp := lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, styledHelp)
+	helpBar := m.renderHelpBar()
+	return lipgloss.JoinVertical(lipgloss.Bottom, centeredHelp, helpBar)
 }
 
 // generateHelpContent builds the complete, formatted help string from the keymap.
@@ -105,6 +112,23 @@ func (m Model) renderHelpSection(bindings []key.Binding) string {
 		helpText += line + "\n"
 	}
 	return helpText
+}
+
+// renderHelpBar creates the help bar view.
+func (m Model) renderHelpBar() string {
+	var helpBindings []key.Binding
+	if !m.showHelp {
+		helpBindings = m.panelShortHelp()
+	} else {
+		helpBindings = keys.ShortHelp()
+	}
+	shortHelp := m.help.ShortHelpView(helpBindings)
+	helpButton := m.theme.HelpButton.Render(" help:? ")
+
+	// Mark the button with a unique ID
+	markedButton := zone.Mark("help-button", helpButton)
+
+	return lipgloss.JoinHorizontal(lipgloss.Left, shortHelp, markedButton)
 }
 
 // renderVerticalPanels takes a list of titles and dimensions and renders them
@@ -171,5 +195,5 @@ func (m Model) renderPanel(title string, width, height int, panelType Panel) str
 		content,
 	))
 
-	return panelStyle.Render(panelContent)
+	return zone.Mark(panelType.ID(), panelStyle.Render(panelContent))
 }

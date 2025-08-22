@@ -3,9 +3,11 @@ package tui
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	zone "github.com/lrstanley/bubblezone"
 )
 
 func TestModelPanelCycle(t *testing.T) {
@@ -194,6 +196,71 @@ func TestModel_HelpToggle(t *testing.T) {
 		if cmd != nil {
 			t.Errorf("Update should not return a quit command when closing the help view, but it did")
 		}
+	})
+}
+
+func TestModel_MouseFocus(t *testing.T) {
+	zone.NewGlobal()
+	defer zone.Close()
+
+	t.Run("clicking on a panel changes focus", func(t *testing.T) {
+		m := initialModel()
+		m.width = 100
+		m.height = 30
+		m.focusedPanel = MainPanel
+
+		viewOutput := m.View()
+		zone.Scan(viewOutput)
+
+		// Add a small delay to allow the zone manager to process zones.
+		// Without the delay, a race condition may appear.
+		time.Sleep(15 * time.Millisecond)
+
+		filesPanelZone := zone.Get(FilesPanel.ID())
+		if filesPanelZone.IsZero() {
+			t.Fatalf("Could not find zone for FilesPanel. Is zone.Mark() implemented in the View?")
+		}
+
+		msg := tea.MouseMsg{
+			X:      filesPanelZone.StartX,
+			Y:      filesPanelZone.StartY,
+			Button: tea.MouseButtonLeft,
+			Action: tea.MouseActionPress,
+		}
+		updatedModel, _ := m.Update(msg)
+		newModel := updatedModel.(Model)
+
+		assertPanel(t, newModel.focusedPanel, FilesPanel)
+	})
+
+	t.Run("clicking on a panel changes focus 2", func(t *testing.T) {
+		m := initialModel()
+		m.width = 100
+		m.height = 30
+		m.focusedPanel = MainPanel
+
+		viewOutput := m.View()
+		zone.Scan(viewOutput)
+
+		// Add a small delay to allow the zone manager to process zones.
+		// Without the delay, a race condition may appear.
+		time.Sleep(15 * time.Millisecond)
+
+		secondaryPanelZone := zone.Get(SecondaryPanel.ID())
+		if secondaryPanelZone.IsZero() {
+			t.Fatalf("Could not find zone for SecondaryPanel. Is zone.Mark() implemented in the View?")
+		}
+
+		msg := tea.MouseMsg{
+			X:      secondaryPanelZone.StartX,
+			Y:      secondaryPanelZone.StartY,
+			Button: tea.MouseButtonLeft,
+			Action: tea.MouseActionPress,
+		}
+		updatedModel, _ := m.Update(msg)
+		newModel := updatedModel.(Model)
+
+		assertPanel(t, newModel.focusedPanel, SecondaryPanel)
 	})
 }
 
