@@ -225,7 +225,7 @@ func TestModel_MouseFocus(t *testing.T) {
 			X:      filesPanelZone.StartX,
 			Y:      filesPanelZone.StartY,
 			Button: tea.MouseButtonLeft,
-			Action: tea.MouseActionPress,
+			Action: tea.MouseActionRelease,
 		}
 		updatedModel, _ := m.Update(msg)
 		newModel := updatedModel.(Model)
@@ -255,7 +255,7 @@ func TestModel_MouseFocus(t *testing.T) {
 			X:      secondaryPanelZone.StartX,
 			Y:      secondaryPanelZone.StartY,
 			Button: tea.MouseButtonLeft,
-			Action: tea.MouseActionPress,
+			Action: tea.MouseActionRelease,
 		}
 		updatedModel, _ := m.Update(msg)
 		newModel := updatedModel.(Model)
@@ -267,7 +267,7 @@ func TestModel_MouseFocus(t *testing.T) {
 // assertPanel is a helper to compare focused panels.
 func assertPanel(t testing.TB, got, want Panel) {
 	if got != want {
-		t.Errorf("got %v\nwant %v", got, want)
+		t.Errorf("got %v\nwant %v", Panel(got), Panel(want))
 	}
 }
 
