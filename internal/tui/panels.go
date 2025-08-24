@@ -1,8 +1,12 @@
 package tui
 
-import "fmt"
+import (
+	"fmt"
 
-// Panel represents a section of the UI.
+	"github.com/charmbracelet/bubbles/viewport"
+)
+
+// Panel is an enumeration of all the panels in the UI.
 type Panel int
 
 const (
@@ -13,27 +17,32 @@ const (
 	CommitsPanel
 	StashPanel
 	SecondaryPanel
-	totalPanels
+	totalPanels // Used to iterate over all panels
 )
 
+// ID returns a string ID for the panel, used for mouse zone detection.
 func (p Panel) ID() string {
 	return fmt.Sprintf("panel-%d", p)
 }
 
+// panel represents the state of a single UI panel.
+type panel struct {
+	viewport viewport.Model
+	content  string
+}
+
 // nextPanel shifts focus to the next Panel.
 func (m *Model) nextPanel() {
-	m.focusedPanel = (m.focusedPanel + 1) % totalPanels
-	// skip SecondaryPanel
-	if m.focusedPanel == SecondaryPanel {
-		m.nextPanel()
-	}
+	// Skips SecondaryPanel
+	m.focusedPanel = (m.focusedPanel + 1) % (totalPanels - 1)
 }
 
 // prevPanel shifts focus to the previous Panel.
 func (m *Model) prevPanel() {
-	m.focusedPanel = (m.focusedPanel - 1 + totalPanels) % totalPanels
 	// skip SecondaryPanel
-	if m.focusedPanel == SecondaryPanel {
-		m.prevPanel()
+	if m.focusedPanel == 0 {
+		m.focusedPanel = totalPanels - 2
+		return
 	}
+	m.focusedPanel = m.focusedPanel - 1
 }

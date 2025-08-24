@@ -2,14 +2,15 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	zone "github.com/lrstanley/bubblezone"
 )
 
-// View is the main render function for the application, called by the Bubble Tea
-// runtime. It delegates rendering to other functions based on the application's state.
+// View is the main render function for the application.
 func (m Model) View() string {
 	if m.showHelp {
 		return m.renderHelpView()
@@ -17,98 +18,191 @@ func (m Model) View() string {
 	return m.renderMainView()
 }
 
-// renderMainView renders the primary user interface, consisting of multiple panels
-// and a short help bar at the bottom. After assembling the final view, it scans
-// the output for bubblezone markers, which updates the internal map of clickable
-// areas to enable mouse support.
-// and a short help bar at the bottom.
+// renderMainView renders the primary user interface using pre-calculated panel heights.
 func (m Model) renderMainView() string {
-	// If the terminal size has not been determined yet, show a loading message.
-	if m.width == 0 || m.height == 0 {
+	if m.width == 0 || m.height == 0 || len(m.panelHeights) == 0 {
 		return "Initializing..."
 	}
 
-	// Calculate the widths for the main left and right sections of the UI.
-	leftSectionRenderedWidth := int(float64(m.width) * 0.3)
-	rightSectionRenderedWidth := m.width - leftSectionRenderedWidth
+	leftSectionWidth := int(float64(m.width) * 0.3)
+	rightSectionWidth := m.width - leftSectionWidth
 
-	// Render the stack of panels for the left section.
-	leftPanelTitles := []string{"Status", "Files", "Branches", "Commits", "Stash"}
-	leftPanels := m.renderVerticalPanels(
-		leftPanelTitles,
-		leftSectionRenderedWidth,
-		m.height-1, // Subtract 1 for the help bar at the bottom.
-		[]Panel{StatusPanel, FilesPanel, BranchesPanel, CommitsPanel, StashPanel},
-	)
+	// Define the panels for each column.
+	leftpanels := []Panel{StatusPanel, FilesPanel, BranchesPanel, CommitsPanel, StashPanel}
+	rightpanels := []Panel{MainPanel, SecondaryPanel}
 
-	// Render the stack of panels for the right section.
-	rightPanelTitles := []string{"Main", "Secondary"}
-	rightPanels := m.renderVerticalPanels(
-		rightPanelTitles,
-		rightSectionRenderedWidth,
-		m.height-1, // Subtract 1 for the help bar at the bottom.
-		[]Panel{MainPanel, SecondaryPanel},
-	)
+	// Create a map of titles for easy lookup.
+	titles := map[Panel]string{
+		MainPanel:      "Main",
+		StatusPanel:    "Status",
+		FilesPanel:     "Files",
+		BranchesPanel:  "Branches",
+		CommitsPanel:   "Commits",
+		StashPanel:     "Stash",
+		SecondaryPanel: "Secondary",
+	}
 
-	// Assemble the final view by joining the sections and adding the help bar.
-	content := lipgloss.JoinHorizontal(lipgloss.Top, leftPanels, rightPanels)
+	leftColumn := m.renderPanelColumn(leftpanels, titles, leftSectionWidth)
+	rightColumn := m.renderPanelColumn(rightpanels, titles, rightSectionWidth)
+
+	content := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, rightColumn)
 	helpBar := m.renderHelpBar()
-
 	finalView := lipgloss.JoinVertical(lipgloss.Bottom, content, helpBar)
 
 	zone.Scan(finalView)
-
 	return finalView
 }
 
-// renderHelpView renders the full-screen help menu. It centers the
-// pre-rendered help content within the terminal window.
-func (m Model) renderHelpView() string {
-	styledHelp := m.helpViewport.View()
+// renderPanelColumn renders a vertical stack of panels.
+func (m Model) renderPanelColumn(panels []Panel, titles map[Panel]string, width int) string {
+	var renderedPanels []string
+	for _, panel := range panels {
+		height := m.panelHeights[panel]
+		title := titles[panel]
+		renderedPanels = append(renderedPanels, m.renderPanel(title, width, height, panel))
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, renderedPanels...)
+}
 
-	// Place the rendered help content in the center of the screen.
-	centeredHelp := lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, styledHelp)
+// renderPanel is a convenience function that calls renderBox with the correct
+// styles and content for a specific panel.
+func (m Model) renderPanel(title string, width, height int, panel Panel) string {
+	var borderStyle BorderStyle
+	var titleStyle lipgloss.Style
+	isFocused := m.focusedPanel == panel
+
+	if m.focusedPanel == panel {
+		borderStyle = m.theme.ActiveBorder
+		titleStyle = m.theme.ActiveTitle
+	} else {
+		borderStyle = m.theme.InactiveBorder
+		titleStyle = m.theme.InactiveTitle
+	}
+
+	formattedTitle := fmt.Sprintf("[%d] %s", int(panel), title)
+	if panel == SecondaryPanel {
+		formattedTitle = title
+	}
+
+	viewport := m.panels[panel].viewport
+	isScrollable := !viewport.AtTop() || !viewport.AtBottom()
+	showScrollbar := isScrollable
+
+	// For Stash and Secondary panels, only show the scrollbar when focused.
+	if panel == StashPanel || panel == SecondaryPanel {
+		showScrollbar = isScrollable && isFocused
+	}
+
+	box := renderBox(
+		formattedTitle,
+		titleStyle,
+		borderStyle,
+		m.panels[panel].viewport,
+		m.theme.ScrollbarThumb,
+		width,
+		height,
+		showScrollbar,
+	)
+
+	return zone.Mark(panel.ID(), box)
+}
+
+// renderHelpView renders the help view.
+func (m Model) renderHelpView() string {
+	// For the help view, the scrollbar should always be visible if scrollable.
+	showScrollbar := !m.helpViewport.AtTop() || !m.helpViewport.AtBottom()
+
+	helpBox := renderBox(
+		"Help",
+		m.theme.ActiveTitle,
+		m.theme.ActiveBorder,
+		m.helpViewport,
+		m.theme.ScrollbarThumb,
+		m.helpViewport.Width,
+		m.helpViewport.Height,
+		showScrollbar,
+	)
+
+	centeredHelp := lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, helpBox)
 	helpBar := m.renderHelpBar()
 	return lipgloss.JoinVertical(lipgloss.Bottom, centeredHelp, helpBar)
 }
 
-// generateHelpContent builds the complete, formatted help string from the keymap.
-// This content is then used to populate the help viewport.
-func (m Model) generateHelpContent() string {
-	// Define titles for different sections of the help menu.
-	navTitle := m.theme.HelpTitle.Render("Navigation")
-	filesTitle := m.theme.HelpTitle.Render("Files")
-	miscTitle := m.theme.HelpTitle.Render("Misc")
+// renderBox manually constructs a bordered box with a title and an integrated scrollbar.
+func renderBox(title string, titleStyle lipgloss.Style, borderStyle BorderStyle, vp viewport.Model, thumbStyle lipgloss.Style, width, height int, showScrollbar bool) string {
 
-	// Render each section using the keybindings defined in the keymap.
-	navHelp := m.renderHelpSection([]key.Binding{keys.FocusNext, keys.FocusPrev, keys.FocusZero, keys.FocusOne, keys.FocusTwo, keys.FocusThree, keys.FocusFour, keys.FocusFive})
-	filesHelp := m.renderHelpSection([]key.Binding{keys.StageItem, keys.StageAll})
-	miscHelp := m.renderHelpSection([]key.Binding{keys.ToggleHelp, keys.Quit, keys.SwitchTheme})
+	// 1. Get content and calculate internal dimensions.
+	contentLines := strings.Split(vp.View(), "\n")
+	contentWidth := width - 2   // Account for left/right borders.
+	contentHeight := height - 2 // Account for top/bottom borders.
+	if contentHeight < 0 {
+		contentHeight = 0
+	}
 
-	// Assemble the sections into a single string for display.
-	navSection := lipgloss.JoinVertical(lipgloss.Left, navTitle, navHelp)
-	filesSection := lipgloss.JoinVertical(lipgloss.Left, filesTitle, filesHelp)
-	miscSection := lipgloss.JoinVertical(lipgloss.Left, miscTitle, miscHelp)
+	// 2. Build the top border with the title embedded.
+	var builder strings.Builder
+	renderedTitle := titleStyle.Render(" " + title + " ")
+	builder.WriteString(borderStyle.Style.Render(borderStyle.TopLeft))
+	builder.WriteString(renderedTitle)
+	remainingWidth := width - lipgloss.Width(renderedTitle) - 2
+	if remainingWidth > 0 {
+		builder.WriteString(borderStyle.Style.Render(strings.Repeat(borderStyle.Top, remainingWidth)))
+	}
+	builder.WriteString(borderStyle.Style.Render(borderStyle.TopRight))
+	builder.WriteString("\n")
 
-	return lipgloss.JoinVertical(lipgloss.Left, navSection, "", filesSection, "", miscSection)
+	// 3. Build the content rows with side borders and the scrollbar.
+	thumbPosition := -1
+	if showScrollbar {
+		thumbPosition = int(float64(contentHeight-1) * vp.ScrollPercent())
+	}
+
+	for i := 0; i < contentHeight; i++ {
+		builder.WriteString(borderStyle.Style.Render(borderStyle.Left))
+		if i < len(contentLines) {
+			builder.WriteString(lipgloss.NewStyle().MaxWidth(contentWidth).Render(contentLines[i]))
+		} else {
+			builder.WriteString(strings.Repeat(" ", contentWidth))
+		}
+		if thumbPosition == i {
+			builder.WriteString(thumbStyle.Render(scrollThumb))
+		} else {
+			builder.WriteString(borderStyle.Style.Render(borderStyle.Right))
+		}
+		builder.WriteString("\n")
+	}
+
+	// 4. Build the bottom border.
+	builder.WriteString(borderStyle.Style.Render(borderStyle.BottomLeft))
+	builder.WriteString(borderStyle.Style.Render(strings.Repeat(borderStyle.Bottom, width-2)))
+	builder.WriteString(borderStyle.Style.Render(borderStyle.BottomRight))
+
+	return builder.String()
 }
 
-// renderHelpSection formats a slice of keybindings into a two-column layout
-// (key and description) for the help menu.
+// generateHelpContent builds the formatted help string from the keymap.
+func (m Model) generateHelpContent() string {
+	helpSections := keys.FullHelp()
+	var renderedSections []string
+	for _, section := range helpSections {
+		title := m.theme.HelpTitle.
+			MarginLeft(9).
+			Render(strings.Join([]string{"---", section.Title, "---"}, " "))
+		bindings := m.renderHelpSection(section.Bindings)
+		renderedSections = append(renderedSections, lipgloss.JoinVertical(lipgloss.Left, title, bindings))
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, renderedSections...)
+}
+
+// renderHelpSection formats keybindings into a two-column layout.
 func (m Model) renderHelpSection(bindings []key.Binding) string {
 	var helpText string
-
-	// Define styles for the key and description columns.
-	keyStyle := lipgloss.NewStyle().Width(10).Align(lipgloss.Right).MarginRight(2)
+	keyStyle := m.theme.HelpKey.Width(12).Align(lipgloss.Right).MarginRight(1)
 	descStyle := lipgloss.NewStyle()
-
 	for _, kb := range bindings {
 		key := kb.Help().Key
 		desc := kb.Help().Desc
-		line := lipgloss.JoinHorizontal(lipgloss.Left,
-			keyStyle.Render(key),
-			descStyle.Render(desc),
-		)
+		line := lipgloss.JoinHorizontal(lipgloss.Left, keyStyle.Render(key), descStyle.Render(desc))
 		helpText += line + "\n"
 	}
 	return helpText
@@ -124,76 +218,6 @@ func (m Model) renderHelpBar() string {
 	}
 	shortHelp := m.help.ShortHelpView(helpBindings)
 	helpButton := m.theme.HelpButton.Render(" help:? ")
-
-	// Mark the button with a unique ID
 	markedButton := zone.Mark("help-button", helpButton)
-
 	return lipgloss.JoinHorizontal(lipgloss.Left, shortHelp, markedButton)
-}
-
-// renderVerticalPanels takes a list of titles and dimensions and renders them
-// as a stack of panels, distributing the available height evenly.
-func (m Model) renderVerticalPanels(titles []string, width, height int, panelTypes []Panel) string {
-	panelCount := len(titles)
-	if panelCount == 0 {
-		return ""
-	}
-
-	// Calculate the height for each panel, giving any remainder to the last one.
-	availableHeight := height
-	panelHeight := availableHeight / panelCount
-	lastPanelHeight := availableHeight - (panelHeight * (panelCount - 1))
-
-	var panels []string
-	for i, title := range titles {
-		h := panelHeight
-		if i == panelCount-1 {
-			h = lastPanelHeight
-		}
-		panels = append(panels, m.renderPanel(title, width, h, panelTypes[i]))
-	}
-	return lipgloss.JoinVertical(lipgloss.Left, panels...)
-}
-
-// renderPanel renders a single panel with a title bar and placeholder content.
-// It applies different styles based on whether the panel is currently focused.
-func (m Model) renderPanel(title string, width, height int, panelType Panel) string {
-	var panelStyle lipgloss.Style
-	var titleStyle lipgloss.Style
-
-	// Apply active or inactive theme styles based on focus.
-	if m.focusedPanel == panelType {
-		panelStyle = m.theme.ActivePanel
-		titleStyle = m.theme.ActiveTitle
-	} else {
-		panelStyle = m.theme.InactivePanel
-		titleStyle = m.theme.InactiveTitle
-	}
-
-	// Account for border size when setting panel dimensions.
-	panelStyle = panelStyle.Width(width - panelStyle.GetHorizontalBorderSize()).Height(height - panelStyle.GetVerticalBorderSize())
-
-	// Create the title bar with the panel number and name.
-	var formattedTitle string
-	if panelType == SecondaryPanel {
-		formattedTitle = title
-	} else {
-		formattedTitle = fmt.Sprintf("[%d] %s", int(panelType), title)
-	}
-	titleBar := titleStyle.Width(width - panelStyle.GetHorizontalBorderSize()).Render(" " + formattedTitle)
-
-	// Placeholder for the panel's actual content.
-	content := m.theme.NormalText.Render(fmt.Sprintf("This is the %s panel.", title))
-	contentHeight := height - panelStyle.GetVerticalBorderSize() - 1 // Subtract 1 for the title bar.
-
-	// Combine the title bar and content area.
-	panelContent := lipgloss.JoinVertical(lipgloss.Left, titleBar, lipgloss.Place(
-		width-panelStyle.GetHorizontalBorderSize(),
-		contentHeight,
-		lipgloss.Left,
-		lipgloss.Top,
-		content,
-	))
-
-	return zone.Mark(panelType.ID(), panelStyle.Render(panelContent))
 }

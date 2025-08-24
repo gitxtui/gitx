@@ -64,24 +64,39 @@ var Palettes = map[string]Palette{
 
 // Theme represents the styles for different components of the UI.
 type Theme struct {
-	ActivePanel   lipgloss.Style
-	InactivePanel lipgloss.Style
-	ActiveTitle   lipgloss.Style
-	InactiveTitle lipgloss.Style
-	NormalText    lipgloss.Style
-	HelpTitle     lipgloss.Style
-	HelpButton    lipgloss.Style
+	ActivePanel    lipgloss.Style
+	InactivePanel  lipgloss.Style
+	ActiveTitle    lipgloss.Style
+	InactiveTitle  lipgloss.Style
+	NormalText     lipgloss.Style
+	HelpTitle      lipgloss.Style
+	HelpKey        lipgloss.Style
+	HelpButton     lipgloss.Style
+	ScrollbarThumb lipgloss.Style
+
+	ActiveBorder   BorderStyle
+	InactiveBorder BorderStyle
+}
+
+const scrollThumb string = "▐"
+
+// BorderStyle defines the characters and styles for a panel's border.
+type BorderStyle struct {
+	Top         string
+	Bottom      string
+	Left        string
+	Right       string
+	TopLeft     string
+	TopRight    string
+	BottomLeft  string
+	BottomRight string
+	Style       lipgloss.Style
 }
 
 // NewThemeFromPalette creates a Theme from a Palette.
 func NewThemeFromPalette(p Palette) Theme {
+
 	return Theme{
-		ActivePanel: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(p.BrightCyan)),
-		InactivePanel: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(p.BrightBlack)),
 		ActiveTitle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(p.Bg)).
 			Background(lipgloss.Color(p.BrightCyan)),
@@ -91,12 +106,24 @@ func NewThemeFromPalette(p Palette) Theme {
 		NormalText: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(p.Fg)),
 		HelpTitle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(p.Yellow)).
+			Foreground(lipgloss.Color(p.Green)).
 			Bold(true),
+		HelpKey: lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
 		HelpButton: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(p.Bg)).
 			Background(lipgloss.Color(p.Green)).
 			Margin(0, 1),
+		ScrollbarThumb: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightGreen)),
+		ActiveBorder: BorderStyle{
+			Top: "─", Bottom: "─", Left: "│", Right: "│",
+			TopLeft: "╭", TopRight: "╮", BottomLeft: "╰", BottomRight: "╯",
+			Style: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightCyan)),
+		},
+		InactiveBorder: BorderStyle{
+			Top: "─", Bottom: "─", Left: "│", Right: "│",
+			TopLeft: "╭", TopRight: "╮", BottomLeft: "╰", BottomRight: "╯",
+			Style: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightBlack)),
+		},
 	}
 }
 
