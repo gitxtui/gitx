@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -22,12 +23,13 @@ type panelContentUpdatedMsg struct {
 // fetchPanelContent is a generic command that fetches content for a given panel.
 func fetchPanelContent(gc *git.GitCommands, panel Panel) tea.Cmd {
 	return func() tea.Msg {
-		var content string
+		var content, repoName, branchName string
 		var err error
 
 		switch panel {
 		case StatusPanel:
-			content, err = gc.GetStatus()
+			repoName, branchName, err = gc.GetRepoInfo()
+			content = fmt.Sprintf("%s -> %s", repoName, branchName)
 		case FilesPanel:
 			content = "\nPLACEHOLDER DATA??\n1\n2\n cmd/gitx\n MM internal/tui\n file1.go\n M file2.txt\n A file3.md" // FIXME: Placeholder
 		case BranchesPanel:

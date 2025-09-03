@@ -12,23 +12,26 @@ import (
 type Model struct {
 	width        int
 	height       int
+	panels       []panel
+	panelHeights []int
+	focusedPanel Panel
 	theme        Theme
 	themeNames   []string
 	themeIndex   int
-	focusedPanel Panel
 	help         help.Model
 	helpViewport viewport.Model
 	helpContent  string
 	showHelp     bool
 	git          *git.GitCommands
-	panels       []panel
-	panelHeights []int
+	repoName     string
+	branchName   string
 }
 
 // initialModel creates the initial state of the application.
 func initialModel() Model {
 	themeNames := ThemeNames()
 	gc := git.NewGitCommands()
+	repoName, branchName, _ := gc.GetRepoInfo()
 	initialContent := "Loading..."
 
 	// Create a slice to hold all our panels.
@@ -51,6 +54,8 @@ func initialModel() Model {
 		helpViewport: viewport.New(0, 0),
 		showHelp:     false,
 		git:          gc,
+		repoName:     repoName,
+		branchName:   branchName,
 		panels:       panels,
 	}
 }
