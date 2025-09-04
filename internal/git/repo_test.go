@@ -1,7 +1,6 @@
 package git
 
 import (
-	"os/exec"
 	"strings"
 	"testing"
 )
@@ -25,7 +24,7 @@ func TestGetRepoInfo(t *testing.T) {
 	}
 
 	// Verify with actual git commands
-	expectedBranchBytes, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	expectedBranchBytes, err := ExecCommand("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
 	if err != nil {
 		t.Fatalf("Failed to get branch name from git: %v", err)
 	}

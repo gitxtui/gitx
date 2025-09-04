@@ -31,7 +31,7 @@ func fetchPanelContent(gc *git.GitCommands, panel Panel) tea.Cmd {
 			repoName, branchName, err = gc.GetRepoInfo()
 			content = fmt.Sprintf("%s -> %s", repoName, branchName)
 		case FilesPanel:
-			content = "\nPLACEHOLDER DATA??\n1\n2\n cmd/gitx\n MM internal/tui\n file1.go\n M file2.txt\n A file3.md" // FIXME: Placeholder
+			content, err = gc.GetStatus(git.StatusOptions{Porcelain: true})
 		case BranchesPanel:
 			content = "\nPLACEHOLDER DATA??\n1\n2\n3a\n4b\n  main\n* feature/new-ui\n test/add-test\n hotfix/bug-123" // FIXME: Placeholder
 		case CommitsPanel:
@@ -68,6 +68,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case panelContentUpdatedMsg:
 		m.panels[msg.panel].content = msg.content
+		if msg.panel == FilesPanel {
+			m.panels[FilesPanel].lines = strings.Split(strings.TrimRight(msg.content, "\n"), "\n")
+			m.panels[FilesPanel].cursor = 0
+		}
 		m.panels[msg.panel].viewport.SetContent(msg.content)
 		return m, nil
 
@@ -230,46 +234,66 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 	}
 
+	// Global key handling that should take precedence over panel-specific logic.
 	switch {
 	case key.Matches(msg, keys.Quit):
 		return m, tea.Quit
 
 	case key.Matches(msg, keys.ToggleHelp):
 		m.toggleHelp()
+		return m, nil
 
 	case key.Matches(msg, keys.SwitchTheme):
 		m.nextTheme()
+		return m, nil
 
-		// Handle panel focus navigation.
-	case key.Matches(msg, keys.FocusNext):
-		m.nextPanel()
-
-	case key.Matches(msg, keys.FocusPrev):
-		m.prevPanel()
-
-		// Handle direct panel focus via number keys.
-	case key.Matches(msg, keys.FocusZero):
-		m.focusedPanel = MainPanel
-
-	case key.Matches(msg, keys.FocusOne):
-		m.focusedPanel = StatusPanel
-
-	case key.Matches(msg, keys.FocusTwo):
-		m.focusedPanel = FilesPanel
-
-	case key.Matches(msg, keys.FocusThree):
-		m.focusedPanel = BranchesPanel
-
-	case key.Matches(msg, keys.FocusFour):
-		m.focusedPanel = CommitsPanel
-
-	case key.Matches(msg, keys.FocusFive):
-		m.focusedPanel = StashPanel
-
-	case key.Matches(msg, keys.FocusSix):
-		m.focusedPanel = SecondaryPanel
+	case key.Matches(msg, keys.FocusNext), key.Matches(msg, keys.FocusPrev),
+		key.Matches(msg, keys.FocusZero), key.Matches(msg, keys.FocusOne),
+		key.Matches(msg, keys.FocusTwo), key.Matches(msg, keys.FocusThree),
+		key.Matches(msg, keys.FocusFour), key.Matches(msg, keys.FocusFive),
+		key.Matches(msg, keys.FocusSix):
+		switch {
+		case key.Matches(msg, keys.FocusNext):
+			m.nextPanel()
+		case key.Matches(msg, keys.FocusPrev):
+			m.prevPanel()
+		case key.Matches(msg, keys.FocusZero):
+			m.focusedPanel = MainPanel
+		case key.Matches(msg, keys.FocusOne):
+			m.focusedPanel = StatusPanel
+		case key.Matches(msg, keys.FocusTwo):
+			m.focusedPanel = FilesPanel
+		case key.Matches(msg, keys.FocusThree):
+			m.focusedPanel = BranchesPanel
+		case key.Matches(msg, keys.FocusFour):
+			m.focusedPanel = CommitsPanel
+		case key.Matches(msg, keys.FocusFive):
+			m.focusedPanel = StashPanel
+		case key.Matches(msg, keys.FocusSix):
+			m.focusedPanel = SecondaryPanel
+		}
+		return m, nil
 	}
-	return m, nil
+
+	// Panel-specific key handling for custom logic (like cursor movement).
+	if m.focusedPanel == FilesPanel {
+		switch {
+		case key.Matches(msg, keys.Up):
+			if m.panels[FilesPanel].cursor > 0 {
+				m.panels[FilesPanel].cursor--
+			}
+		case key.Matches(msg, keys.Down):
+			if m.panels[FilesPanel].cursor < len(m.panels[FilesPanel].lines)-1 {
+				m.panels[FilesPanel].cursor++
+			}
+		}
+	}
+
+	// Always pass the key message to the focused panel's viewport for scrolling.
+	m.panels[m.focusedPanel].viewport, cmd = m.panels[m.focusedPanel].viewport.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return m, tea.Batch(cmds...)
 }
 
 // toggleHelp toggles the visibility of the help view and prepares its content.

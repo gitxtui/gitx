@@ -22,6 +22,8 @@ type KeyMap struct {
 	FocusFour  key.Binding
 	FocusFive  key.Binding
 	FocusSix   key.Binding
+	Up         key.Binding
+	Down       key.Binding
 
 	// Keybindings for FilesPanel
 	StageItem key.Binding
@@ -48,7 +50,7 @@ func (k KeyMap) FullHelp() []HelpSection {
 			Bindings: []key.Binding{
 				k.FocusNext, k.FocusPrev, k.FocusZero, k.FocusOne,
 				k.FocusTwo, k.FocusThree, k.FocusFour, k.FocusFive,
-				k.FocusSix,
+				k.FocusSix, k.Up, k.Down,
 			},
 		},
 		{
@@ -140,6 +142,14 @@ func DefaultKeyMap() KeyMap {
 		FocusSix: key.NewBinding(
 			key.WithKeys("6"),
 			key.WithHelp("6", "Focus Command log Window"),
+		),
+		Up: key.NewBinding(
+			key.WithKeys("k", "up"),
+			key.WithHelp("k/↑", "up"),
+		),
+		Down: key.NewBinding(
+			key.WithKeys("j", "down"),
+			key.WithHelp("j/↓", "down"),
 		),
 
 		// FilesPanel

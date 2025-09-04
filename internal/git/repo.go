@@ -1,7 +1,6 @@
 package git
 
 import (
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -9,7 +8,7 @@ import (
 // GetRepoInfo returns the current repository and active branch name.
 func (g *GitCommands) GetRepoInfo() (repoName string, branchName string, err error) {
 	// Get the root dir of the repo.
-	repoPathBytes, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	repoPathBytes, err := ExecCommand("git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return "", "", err
 	}
@@ -18,7 +17,7 @@ func (g *GitCommands) GetRepoInfo() (repoName string, branchName string, err err
 	repoName = filepath.Base(repoPath)
 
 	// Get the current branch name.
-	repoBranchBytes, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	repoBranchBytes, err := ExecCommand("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
 	if err != nil {
 		return "", "", err
 	}

@@ -97,7 +97,7 @@ func TestGitCommands_Status(t *testing.T) {
 	g := NewGitCommands()
 
 	// Test on a clean repo
-	status, err := g.GetStatus()
+	status, err := g.GetStatus(StatusOptions{Porcelain: false})
 	if err != nil {
 		t.Errorf("GetStatus() on clean repo failed: %v", err)
 	}
@@ -109,11 +109,11 @@ func TestGitCommands_Status(t *testing.T) {
 	if err := os.WriteFile("new-file.txt", []byte("content"), 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
-	status, err = g.GetStatus()
+	status, err = g.GetStatus(StatusOptions{Porcelain: true})
 	if err != nil {
 		t.Errorf("GetStatus() with new file failed: %v", err)
 	}
-	if !strings.Contains(status, "Untracked files") {
+	if !strings.Contains(status, "?? new-file.txt") {
 		t.Errorf("expected untracked file status, got: %s", status)
 	}
 }

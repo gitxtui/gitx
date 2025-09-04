@@ -29,6 +29,8 @@ func (p Panel) ID() string {
 type panel struct {
 	viewport viewport.Model
 	content  string
+	lines    []string
+	cursor   int
 }
 
 // nextPanel shifts focus to the next Panel.
