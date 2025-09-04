@@ -51,14 +51,24 @@ func fetchPanelContent(gc *git.GitCommands, panel Panel) tea.Cmd {
 			}
 			content = strings.TrimSpace(builder.String())
 		case CommitsPanel:
-			content = strings.Join([]string{
-				"\nPLACEHOLDER DATA??\n1\n2\nf7875b4 (HEAD -> feature/new-ui) feat: add new panel layout",
-				"a3e8b1c (origin/main, main) fix: correct scrolling logic",
-				"c1d9f2e chore: update dependencies",
-				"f7875b4 (HEAD -> feature/new-ui) feat: add new panel layout",
-				"a3e8b1c (origin/main, main) fix: correct scrolling logic",
-				"c1d9f2e chore: update dependencies",
-			}, "\n") // FIXME: Placeholder
+			logs, err := gc.GetCommitLogsGraph()
+			if err != nil {
+				content = "Error getting commit logs: " + err.Error()
+				break
+			}
+			var builder strings.Builder
+			for _, log := range logs {
+				var line string
+				if log.SHA != "" {
+					// It's a commit line with data
+					line = fmt.Sprintf("%s %s [%s] %s", log.Graph, log.SHA, log.AuthorInitials, log.Subject)
+				} else {
+					// It's a line that is only part of the graph structure
+					line = log.Graph
+				}
+				builder.WriteString(line + "\n")
+			}
+			content = strings.TrimSpace(builder.String())
 		case StashPanel:
 			content = "PLACEHOLDER DATA??\n1\n2\n\n3\n4\n5\n6stash@{0}: WIP on feature/new-ui: 52f3a6b feat: add panels" // FIXME: Placeholder
 		case MainPanel:
@@ -93,10 +103,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.panels[FilesPanel].lines = renderedTree
 			m.panels[FilesPanel].cursor = 0
 			m.panels[FilesPanel].viewport.SetContent(newContent)
-			return m, nil
+		} else {
+			m.panels[msg.panel].content = msg.content
+			m.panels[msg.panel].viewport.SetContent(msg.content)
 		}
-		m.panels[msg.panel].content = msg.content
-		m.panels[msg.panel].viewport.SetContent(msg.content)
 		return m, nil
 
 	case fileWatcherMsg:

@@ -37,8 +37,8 @@ ci:
 # Installs the binary to /usr/local/bin
 install: build
 	@echo "Installing $(BINARY_NAME)..."
-	@sudo install $(BUILD_DIR)/$(BINARY_NAME) /usr/local/bin
-	@echo "$(BINARY_NAME) installed successfully to /usr/local/bin"
+	@go install $(CMD_PATH)
+	@echo "$(BINARY_NAME) installed successfully"
 
 # Cleans the build artifacts
 clean:

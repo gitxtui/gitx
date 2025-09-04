@@ -98,7 +98,12 @@ func (n *Node) compact() {
 		child.compact()
 	}
 
-	// Merge this node with its child if it's a single-directory container.
+	// Merge this node with its child if it's a single-directory container,
+	// but do not compact the root node itself.
+	if n.name == "." {
+		return
+	}
+
 	for len(n.children) == 1 && len(n.children[0].children) > 0 {
 		child := n.children[0]
 		n.name = filepath.Join(n.name, child.name)
