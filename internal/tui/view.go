@@ -92,12 +92,16 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 	if panel == FilesPanel || panel == BranchesPanel || panel == CommitsPanel || panel == StashPanel {
 		var builder strings.Builder
 		for i, line := range p.lines {
+			lineID := fmt.Sprintf("%s-line-%d", panel.ID(), i)
+			var renderedLine string
 			if i == p.cursor && isFocused {
 				lineStyle := m.theme.SelectedLine.Width(contentWidth)
-				builder.WriteString(lineStyle.Render(line))
+				renderedLine = lineStyle.Render(line)
 			} else {
-				builder.WriteString(line)
+				lineStyle := lipgloss.NewStyle().Width(m.theme.ActivePanel.GetMaxWidth())
+				renderedLine = lineStyle.Render(line)
 			}
+			builder.WriteString(zone.Mark(lineID, renderedLine))
 			builder.WriteRune('\n')
 		}
 		content = strings.TrimRight(builder.String(), "\n")

@@ -29,8 +29,13 @@ func BuildTree(gitStatus string) *Node {
 		if len(line) < 4 {
 			continue
 		}
-		status := strings.TrimSpace(line[:2])
-		path := line[3:]
+		spaceIndex := strings.Index(line, " ")
+		if spaceIndex == -1 {
+			continue
+		}
+
+		status := strings.TrimSpace(line[:spaceIndex])
+		path := line[spaceIndex+1:]
 
 		parts := strings.Split(path, string(filepath.Separator))
 		currentNode := root

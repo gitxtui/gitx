@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -232,6 +233,136 @@ func TestModel_MouseFocus(t *testing.T) {
 			updatedModel, _ := tm.Update(msg)
 
 			assertPanel(t, updatedModel.(Model).focusedPanel, tc.targetPanel)
+		})
+	}
+}
+
+func TestModel_ScrollInactivePanelWithMouse(t *testing.T) {
+	zone.NewGlobal()
+	defer zone.Close()
+
+	tm := newTestModel()
+	scrollablePanel := CommitsPanel
+	focusedPanel := MainPanel
+
+	// 1. Setup: Make a panel scrollable and focus another panel.
+	longContent := strings.Repeat("line\n", 30)
+	tm.panels[scrollablePanel].content = longContent
+	tm.panels[scrollablePanel].lines = strings.Split(longContent, "\n")
+	tm.panels[scrollablePanel].viewport.SetContent(longContent)
+	tm.focusedPanel = focusedPanel
+
+	// 2. Render the view and scan it to register the zones with the zone manager.
+	view := tm.View()
+	zone.Scan(view)
+
+	// 3. Get the zone for the inactive panel we want to scroll.
+	panelZone := zone.Get(scrollablePanel.ID())
+	if panelZone.IsZero() {
+		t.Fatalf("Could not find zone for %s. Is zone.Mark() used in the View?", scrollablePanel.ID())
+	}
+
+	// 4. Create a modern mouse scroll event that happens inside the inactive panel's zone.
+	scrollMsg := tea.MouseMsg{
+		Button: tea.MouseButtonWheelDown,
+		X:      panelZone.StartX, // Within the zone's X bounds
+		Y:      panelZone.StartY, // Within the zone's Y bounds
+	}
+
+	// 5. Act: Send the scroll message to the model.
+	updatedModel, _ := tm.Update(scrollMsg)
+	tm.Model = updatedModel.(Model)
+
+	// 6. Assert: The inactive panel's viewport should have scrolled.
+	if tm.panels[scrollablePanel].viewport.YOffset == 0 {
+		t.Errorf("expected inactive panel %s to scroll, but YOffset remained 0", scrollablePanel.ID())
+	}
+	if tm.focusedPanel != focusedPanel {
+		t.Errorf("focus should not have changed. want %s, got %s", focusedPanel.ID(), tm.focusedPanel.ID())
+	}
+}
+
+func TestModel_LineSelectionAndScrolling(t *testing.T) {
+	selectablePanels := []Panel{FilesPanel, BranchesPanel, CommitsPanel, StashPanel}
+
+	for _, panel := range selectablePanels {
+		t.Run(fmt.Sprintf("for %s", panel.ID()), func(t *testing.T) {
+			tm := newTestModel()
+			// Make viewport small to test scrolling behavior
+			tm.panels[panel].viewport.Height = 5
+
+			longContent := strings.Repeat("line\n", 10)
+			lines := strings.Split(strings.TrimSpace(longContent), "\n")
+			tm.panels[panel].lines = lines
+			tm.panels[panel].content = longContent
+			tm.panels[panel].viewport.SetContent(longContent)
+			tm.focusedPanel = panel
+
+			// Test mouse click selection
+			t.Run("mouse click moves cursor", func(t *testing.T) {
+				clickMsg := lineClickedMsg{panel: panel, lineIndex: 3}
+				updatedModel, _ := tm.Update(clickMsg)
+				tm.Model = updatedModel.(Model)
+
+				if tm.panels[panel].cursor != 3 {
+					t.Errorf("cursor should be at index 3 after click, got %d", tm.panels[panel].cursor)
+				}
+			})
+
+			// Test keyboard down and up
+			t.Run("arrow keys move cursor", func(t *testing.T) {
+				tm.panels[panel].cursor = 1 // reset
+				downKey := tea.KeyMsg{Type: tea.KeyDown}
+				updatedModel, _ := tm.Update(downKey)
+				tm.Model = updatedModel.(Model)
+
+				if tm.panels[panel].cursor != 2 {
+					t.Errorf("cursor should be at index 2 after pressing down, got %d", tm.panels[panel].cursor)
+				}
+
+				upKey := tea.KeyMsg{Type: tea.KeyUp}
+				updatedModel, _ = tm.Update(upKey)
+				tm.Model = updatedModel.(Model)
+
+				if tm.panels[panel].cursor != 1 {
+					t.Errorf("cursor should be at index 1 after pressing up, got %d", tm.panels[panel].cursor)
+				}
+			})
+
+			// Test viewport scrolling down
+			t.Run("viewport scrolls down with cursor", func(t *testing.T) {
+				tm.panels[panel].cursor = 4 // Last visible line (0,1,2,3,4)
+				tm.panels[panel].viewport.YOffset = 0
+
+				downKey := tea.KeyMsg{Type: tea.KeyDown}
+				updatedModel, _ := tm.Update(downKey)
+				tm.Model = updatedModel.(Model)
+
+				if tm.panels[panel].cursor != 5 {
+					t.Fatalf("cursor should be at index 5, got %d", tm.panels[panel].cursor)
+				}
+				// cursor is 5, height is 5. YOffset should be 5 - 5 + 1 = 1
+				if tm.panels[panel].viewport.YOffset != 1 {
+					t.Errorf("viewport should scroll down. YOffset should be 1, got %d", tm.panels[panel].viewport.YOffset)
+				}
+			})
+
+			// Test viewport scrolling up
+			t.Run("viewport scrolls up with cursor", func(t *testing.T) {
+				tm.panels[panel].cursor = 1
+				tm.panels[panel].viewport.YOffset = 1
+
+				upKey := tea.KeyMsg{Type: tea.KeyUp}
+				updatedModel, _ := tm.Update(upKey)
+				tm.Model = updatedModel.(Model)
+
+				if tm.panels[panel].cursor != 0 {
+					t.Fatalf("cursor should be at index 0, got %d", tm.panels[panel].cursor)
+				}
+				if tm.panels[panel].viewport.YOffset != 0 {
+					t.Errorf("viewport should scroll up. YOffset should be 0, got %d", tm.panels[panel].viewport.YOffset)
+				}
+			})
 		})
 	}
 }

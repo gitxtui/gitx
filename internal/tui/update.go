@@ -20,6 +20,12 @@ type panelContentUpdatedMsg struct {
 	content string
 }
 
+// lineClickedMsg is sent when a line in a selectable panel is clicked.
+type lineClickedMsg struct {
+	panel     Panel
+	lineIndex int
+}
+
 // fileWatcherMsg is a message sent when the file watcher detects a change.
 type fileWatcherMsg struct{}
 
@@ -109,6 +115,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.panels[msg.panel].lines = lines
 			m.panels[msg.panel].cursor = 0
 			m.panels[msg.panel].viewport.SetContent(msg.content)
+		}
+		return m, nil
+
+	case lineClickedMsg:
+		if msg.lineIndex < len(m.panels[msg.panel].lines) {
+			m.panels[msg.panel].cursor = msg.lineIndex
 		}
 		return m, nil
 
@@ -269,6 +281,26 @@ func (m Model) handleMouseMsg(msg tea.MouseMsg) (Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// Check for clicks on panel lines first.
+		for p := range m.panels {
+			panel := Panel(p)
+			// Only check selectable panels.
+			if !(panel == FilesPanel || panel == BranchesPanel || panel == CommitsPanel || panel == StashPanel) {
+				continue
+			}
+			// Check each line in the panel.
+			for i := 0; i < len(m.panels[panel].lines); i++ {
+				lineID := fmt.Sprintf("%s-line-%d", panel.ID(), i)
+				if zone.Get(lineID).InBounds(msg) {
+					m.focusedPanel = panel
+					return m, func() tea.Msg {
+						return lineClickedMsg{panel: panel, lineIndex: i}
+					}
+				}
+			}
+		}
+
+		// If no line was clicked, check for clicks on the panel itself to change focus.
 		for i := range m.panels {
 			if zone.Get(Panel(i).ID()).InBounds(msg) {
 				m.focusedPanel = Panel(i)
@@ -278,8 +310,9 @@ func (m Model) handleMouseMsg(msg tea.MouseMsg) (Model, tea.Cmd) {
 	}
 
 	for i := range m.panels {
-		if zone.Get(Panel(i).ID()).InBounds(msg) {
-			m.panels[i].viewport, cmd = m.panels[i].viewport.Update(msg)
+		panel := Panel(i)
+		if zone.Get(panel.ID()).InBounds(msg) {
+			m.panels[panel].viewport, cmd = m.panels[panel].viewport.Update(msg)
 			cmds = append(cmds, cmd)
 			break
 		}
