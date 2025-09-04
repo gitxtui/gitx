@@ -7,6 +7,7 @@ toolchain go1.24.5
 require (
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/lrstanley/bubblezone v1.0.0
 )
 

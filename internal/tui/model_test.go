@@ -226,6 +226,22 @@ func TestModel_MouseFocus(t *testing.T) {
 	}
 }
 
+func TestModel_Update_FileWatcher(t *testing.T) {
+	m := initialModel()
+	// Use the blank identifier _ to ignore the returned model
+	_, cmd := m.Update(fileWatcherMsg{})
+
+	if cmd == nil {
+		t.Fatal("expected a command to be returned")
+	}
+
+	cmds := cmd().(tea.BatchMsg)
+	// Cast totalPanels to an int for comparison
+	if len(cmds) != int(totalPanels) {
+		t.Errorf("expected %d commands, got %d", totalPanels, len(cmds))
+	}
+}
+
 // newTestModel creates a new model with default dimensions and a calculated layout.
 func newTestModel() testModel {
 	m := initialModel()

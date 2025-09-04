@@ -20,6 +20,9 @@ type panelContentUpdatedMsg struct {
 	content string
 }
 
+// fileWatcherMsg is a message sent when the file watcher detects a change.
+type fileWatcherMsg struct{}
+
 // fetchPanelContent is a generic command that fetches content for a given panel.
 func fetchPanelContent(gc *git.GitCommands, panel Panel) tea.Cmd {
 	return func() tea.Msg {
@@ -67,13 +70,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case panelContentUpdatedMsg:
-		m.panels[msg.panel].content = msg.content
 		if msg.panel == FilesPanel {
-			m.panels[FilesPanel].lines = strings.Split(strings.TrimRight(msg.content, "\n"), "\n")
+			root := BuildTree(msg.content)
+			renderedTree := root.Render()
+			newContent := strings.Join(renderedTree, "\n")
+
+			m.panels[FilesPanel].content = newContent
+			m.panels[FilesPanel].lines = renderedTree
 			m.panels[FilesPanel].cursor = 0
+			m.panels[FilesPanel].viewport.SetContent(newContent)
+			return m, nil
 		}
+		m.panels[msg.panel].content = msg.content
 		m.panels[msg.panel].viewport.SetContent(msg.content)
 		return m, nil
+
+	case fileWatcherMsg:
+		return m, tea.Batch(
+			fetchPanelContent(m.git, StatusPanel),
+			fetchPanelContent(m.git, FilesPanel),
+			fetchPanelContent(m.git, BranchesPanel),
+			fetchPanelContent(m.git, CommitsPanel),
+			fetchPanelContent(m.git, StashPanel),
+			fetchPanelContent(m.git, MainPanel),
+			fetchPanelContent(m.git, SecondaryPanel),
+		)
 
 	case tea.WindowSizeMsg:
 		m, cmd = m.handleWindowSizeMsg(msg)
@@ -88,7 +109,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 
-	// If a message caused the focus to change, we need to recalculate the layout.
 	if m.focusedPanel != oldFocus {
 		if m.focusedPanel == StashPanel || m.focusedPanel == SecondaryPanel {
 			// If the new panel is Stash or Secondary, scroll to top.
@@ -120,40 +140,32 @@ func (m Model) recalculateLayout() Model {
 
 	contentHeight := m.height - 1
 	m.panelHeights = make([]int, totalPanels)
-	expandedHeight := int(float64(contentHeight) * 0.3)
+	expandedHeight := int(float64(contentHeight) * 0.4)
 
 	// --- Right Column ---
 	if m.focusedPanel == SecondaryPanel {
 		m.panelHeights[SecondaryPanel] = expandedHeight
 		m.panelHeights[MainPanel] = contentHeight - expandedHeight
 	} else {
-		m.panelHeights[SecondaryPanel] = 3 // Default collapsed size
+		m.panelHeights[SecondaryPanel] = 3
 		m.panelHeights[MainPanel] = contentHeight - 3
 	}
 
 	// --- Left Column ---
-	m.panelHeights[StatusPanel] = 3 // Always fixed
+	m.panelHeights[StatusPanel] = 3
 	remainingHeight := contentHeight - m.panelHeights[StatusPanel]
-	flexiblePanels := []Panel{FilesPanel, BranchesPanel, CommitsPanel, StashPanel}
-	expandedPanel := StashPanel // The only expandable panel on the left
 
-	if m.focusedPanel == expandedPanel {
-		m.panelHeights[expandedPanel] = expandedHeight
+	if m.focusedPanel == StashPanel {
+		m.panelHeights[StashPanel] = expandedHeight
 	} else {
-		m.panelHeights[expandedPanel] = 3 // Default collapsed size
+		m.panelHeights[StashPanel] = 3 // Default collapsed size
 	}
 
 	// Distribute remaining height among the other flexible panels
-	otherPanelsCount := len(flexiblePanels) - 1
-	otherPanelHeight := (remainingHeight - m.panelHeights[expandedPanel]) / otherPanelsCount
-
-	for _, pType := range flexiblePanels {
-		if pType != expandedPanel {
-			m.panelHeights[pType] = otherPanelHeight
-		}
-	}
-	// Give any remainder to the last non-expanded panel to fill space
-	m.panelHeights[CommitsPanel] += (remainingHeight - m.panelHeights[expandedPanel]) % otherPanelsCount
+	nonExpandedHeight := remainingHeight - m.panelHeights[StashPanel]
+	m.panelHeights[FilesPanel] = int(float64(nonExpandedHeight) * 0.45)    // Files panel gets 55%
+	m.panelHeights[BranchesPanel] = int(float64(nonExpandedHeight) * 0.25) // Branches panel gets 15%
+	m.panelHeights[CommitsPanel] = nonExpandedHeight - m.panelHeights[FilesPanel] - m.panelHeights[BranchesPanel]
 
 	return m.updateViewportSizes()
 }
@@ -161,7 +173,7 @@ func (m Model) recalculateLayout() Model {
 // updateViewportSizes applies the calculated heights from the model to the viewports.
 func (m Model) updateViewportSizes() Model {
 	horizontalBorderWidth := m.theme.ActiveBorder.Style.GetHorizontalBorderSize()
-	titleBarHeight := 2 // Top and bottom border
+	titleBarHeight := 2
 
 	rightSectionWidth := m.width - int(float64(m.width)*0.3)
 	rightContentWidth := rightSectionWidth - horizontalBorderWidth
@@ -180,13 +192,13 @@ func (m Model) updateViewportSizes() Model {
 	return m
 }
 
-// handleMouseMsg handles all mouse events.
+// handleMouseMsg handles all mouse events
 func (m Model) handleMouseMsg(msg tea.MouseMsg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
 	if m.showHelp {
-		if msg.Action == tea.MouseActionRelease && msg.Button == tea.MouseButtonLeft && zone.Get("help-button").InBounds(msg) {
+		if zone.Get("help-button").InBounds(msg) && msg.Action == tea.MouseActionRelease {
 			m.toggleHelp()
 		} else {
 			m.helpViewport, cmd = m.helpViewport.Update(msg)
@@ -200,20 +212,24 @@ func (m Model) handleMouseMsg(msg tea.MouseMsg) (Model, tea.Cmd) {
 			m.toggleHelp()
 			return m, nil
 		}
+
+		for i := range m.panels {
+			if zone.Get(Panel(i).ID()).InBounds(msg) {
+				m.focusedPanel = Panel(i)
+				break
+			}
+		}
 	}
 
 	for i := range m.panels {
-		panel := Panel(i)
-		if zone.Get(panel.ID()).InBounds(msg) {
-			if msg.Action == tea.MouseActionRelease && msg.Button == tea.MouseButtonLeft {
-				m.focusedPanel = panel
-			}
+		if zone.Get(Panel(i).ID()).InBounds(msg) {
 			m.panels[i].viewport, cmd = m.panels[i].viewport.Update(msg)
 			cmds = append(cmds, cmd)
-			return m, tea.Batch(cmds...)
+			break
 		}
 	}
-	return m, nil
+
+	return m, tea.Batch(cmds...)
 }
 
 // handleKeyMsg handles all keyboard events.

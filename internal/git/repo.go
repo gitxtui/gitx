@@ -25,3 +25,12 @@ func (g *GitCommands) GetRepoInfo() (repoName string, branchName string, err err
 
 	return repoName, branchName, nil
 }
+
+func (g *GitCommands) GetGitRepoPath() (repoPath string, err error) {
+	repoPathBytes, err := ExecCommand("git", "rev-parse", "--git-dir").Output()
+	if err != nil {
+		return "", err
+	}
+	repoPath = strings.TrimSpace(string(repoPathBytes))
+	return repoPath, nil
+}
