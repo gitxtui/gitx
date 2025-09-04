@@ -65,6 +65,7 @@ func (a *App) watchGitDir() {
 	for _, path := range watchPaths {
 		if err := watcher.Add(path); err != nil {
 			// ignore errors for paths that might not exist yet
+			log.Printf("error watching path %s: %v", path, err.Error())
 		}
 	}
 
