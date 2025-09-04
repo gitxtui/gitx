@@ -104,7 +104,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.panels[FilesPanel].cursor = 0
 			m.panels[FilesPanel].viewport.SetContent(newContent)
 		} else {
+			lines := strings.Split(msg.content, "\n")
 			m.panels[msg.panel].content = msg.content
+			m.panels[msg.panel].lines = lines
+			m.panels[msg.panel].cursor = 0
 			m.panels[msg.panel].viewport.SetContent(msg.content)
 		}
 		return m, nil
@@ -345,16 +348,30 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	// Panel-specific key handling for custom logic (like cursor movement).
-	if m.focusedPanel == FilesPanel {
+	switch m.focusedPanel {
+	case FilesPanel, BranchesPanel, CommitsPanel, StashPanel:
+		p := &m.panels[m.focusedPanel]
 		switch {
 		case key.Matches(msg, keys.Up):
-			if m.panels[FilesPanel].cursor > 0 {
-				m.panels[FilesPanel].cursor--
+			if p.cursor > 0 {
+				p.cursor--
+				// Scroll viewport up if cursor is out of view
+				if p.cursor < p.viewport.YOffset {
+					p.viewport.SetYOffset(p.cursor)
+				}
 			}
+			// We handled the key, so we return to prevent the default viewport scrolling.
+			return m, nil
 		case key.Matches(msg, keys.Down):
-			if m.panels[FilesPanel].cursor < len(m.panels[FilesPanel].lines)-1 {
-				m.panels[FilesPanel].cursor++
+			if p.cursor < len(p.lines)-1 {
+				p.cursor++
+				// Scroll viewport down if cursor is out of view
+				if p.cursor >= p.viewport.YOffset+p.viewport.Height {
+					p.viewport.SetYOffset(p.cursor - p.viewport.Height + 1)
+				}
 			}
+			// We handled the key, so we return to prevent the default viewport scrolling.
+			return m, nil
 		}
 	}
 

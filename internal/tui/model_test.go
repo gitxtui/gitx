@@ -82,8 +82,18 @@ func TestModel_ConditionalScrollbar(t *testing.T) {
 	defer zone.Close()
 
 	tm := newTestModel()
-	tm.panels[StashPanel].viewport.SetContent(strings.Repeat("line\n", 30))
-	tm.panels[CommitsPanel].viewport.SetContent(strings.Repeat("line\n", 30))
+	longContent := strings.Repeat("line\n", 30)
+	longContentLines := strings.Split(longContent, "\n")
+
+	// Set up content for StashPanel
+	tm.panels[StashPanel].content = longContent
+	tm.panels[StashPanel].lines = longContentLines
+	tm.panels[StashPanel].viewport.SetContent(longContent)
+
+	// Set up content for CommitsPanel
+	tm.panels[CommitsPanel].content = longContent
+	tm.panels[CommitsPanel].lines = longContentLines
+	tm.panels[CommitsPanel].viewport.SetContent(longContent)
 
 	t.Run("Scrollbar is hidden when StashPanel is not focused", func(t *testing.T) {
 		tm.focusedPanel = MainPanel

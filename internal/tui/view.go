@@ -71,7 +71,7 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 	var titleStyle lipgloss.Style
 	isFocused := m.focusedPanel == panel
 
-	if m.focusedPanel == panel {
+	if isFocused {
 		borderStyle = m.theme.ActiveBorder
 		titleStyle = m.theme.ActiveTitle
 	} else {
@@ -84,8 +84,27 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 		formattedTitle = title
 	}
 
-	viewport := m.panels[panel].viewport
-	isScrollable := !viewport.AtTop() || !viewport.AtBottom()
+	p := m.panels[panel]
+	content := p.content
+	contentWidth := width - 2
+
+	// For panels with a selector, render line-by-line with highlighting.
+	if panel == FilesPanel || panel == BranchesPanel || panel == CommitsPanel || panel == StashPanel {
+		var builder strings.Builder
+		for i, line := range p.lines {
+			if i == p.cursor && isFocused {
+				lineStyle := m.theme.SelectedLine.Width(contentWidth)
+				builder.WriteString(lineStyle.Render(line))
+			} else {
+				builder.WriteString(line)
+			}
+			builder.WriteRune('\n')
+		}
+		content = strings.TrimRight(builder.String(), "\n")
+	}
+	p.viewport.SetContent(content)
+
+	isScrollable := !p.viewport.AtTop() || !p.viewport.AtBottom()
 	showScrollbar := isScrollable
 
 	// For Stash and Secondary panels, only show the scrollbar when focused.
@@ -97,7 +116,7 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 		formattedTitle,
 		titleStyle,
 		borderStyle,
-		m.panels[panel].viewport,
+		p.viewport,
 		m.theme.ScrollbarThumb,
 		width,
 		height,

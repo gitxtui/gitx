@@ -5,6 +5,7 @@ import "github.com/charmbracelet/lipgloss"
 type Palette struct {
 	Black, Red, Green, Yellow, Blue, Magenta, Cyan, White,
 	BrightBlack, BrightRed, BrightGreen, BrightYellow, BrightBlue, BrightMagenta, BrightCyan, BrightWhite,
+	DarkBlack, DarkRed, DarkGreen, DarkYellow, DarkBlue, DarkMagenta, DarkCyan, DarkWhite,
 	Bg, Fg string
 }
 
@@ -31,6 +32,16 @@ var Palettes = map[string]Palette{
 		BrightCyan:    "#56d4dd",
 		BrightWhite:   "#f0f6fc",
 
+		// Dark
+		DarkBlack:   "#1b1f23",
+		DarkRed:     "#d73a49",
+		DarkGreen:   "#28a745",
+		DarkYellow:  "#dbab09",
+		DarkBlue:    "#2188ff",
+		DarkMagenta: "#a041f5",
+		DarkCyan:    "#12aab5",
+		DarkWhite:   "#8b949e",
+
 		// Special
 		Bg: "#0d1117",
 		Fg: "#c9d1d9",
@@ -56,6 +67,16 @@ var Palettes = map[string]Palette{
 		BrightCyan:    "#8ec07c",
 		BrightWhite:   "#ebdbb2",
 
+		// Dark
+		DarkBlack:   "#1d2021",
+		DarkRed:     "#9d0006",
+		DarkGreen:   "#79740e",
+		DarkYellow:  "#b57614",
+		DarkBlue:    "#076678",
+		DarkMagenta: "#8f3f71",
+		DarkCyan:    "#427b58",
+		DarkWhite:   "#928374",
+
 		// Special
 		Bg: "#282828",
 		Fg: "#ebdbb2",
@@ -73,6 +94,7 @@ type Theme struct {
 	HelpKey        lipgloss.Style
 	HelpButton     lipgloss.Style
 	ScrollbarThumb lipgloss.Style
+	SelectedLine   lipgloss.Style
 
 	ActiveBorder   BorderStyle
 	InactiveBorder BorderStyle
@@ -95,7 +117,6 @@ type BorderStyle struct {
 
 // NewThemeFromPalette creates a Theme from a Palette.
 func NewThemeFromPalette(p Palette) Theme {
-
 	return Theme{
 		ActiveTitle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(p.Bg)).
@@ -114,6 +135,9 @@ func NewThemeFromPalette(p Palette) Theme {
 			Background(lipgloss.Color(p.Green)).
 			Margin(0, 1),
 		ScrollbarThumb: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightGreen)),
+		SelectedLine: lipgloss.NewStyle().
+			Background(lipgloss.Color(p.DarkBlue)).
+			Foreground(lipgloss.Color(p.BrightWhite)),
 		ActiveBorder: BorderStyle{
 			Top: "─", Bottom: "─", Left: "│", Right: "│",
 			TopLeft: "╭", TopRight: "╮", BottomLeft: "╰", BottomRight: "╯",
