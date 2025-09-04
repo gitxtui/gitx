@@ -285,7 +285,7 @@ func (m Model) handleMouseMsg(msg tea.MouseMsg) (Model, tea.Cmd) {
 		for p := range m.panels {
 			panel := Panel(p)
 			// Only check selectable panels.
-			if !(panel == FilesPanel || panel == BranchesPanel || panel == CommitsPanel || panel == StashPanel) {
+			if panel != FilesPanel && panel != BranchesPanel && panel != CommitsPanel && panel != StashPanel {
 				continue
 			}
 			// Check each line in the panel.
