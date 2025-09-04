@@ -31,7 +31,7 @@ func TestModel_InitialPanels(t *testing.T) {
 
 func TestModel_DynamicLayout(t *testing.T) {
 	tm := newTestModel()
-	expandedHeight := int(float64(tm.height-1) * 0.3)
+	expandedHeight := int(float64(tm.height-1) * 0.4)
 
 	testCases := []struct {
 		name             string

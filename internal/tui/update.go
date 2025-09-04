@@ -32,11 +32,24 @@ func fetchPanelContent(gc *git.GitCommands, panel Panel) tea.Cmd {
 		switch panel {
 		case StatusPanel:
 			repoName, branchName, err = gc.GetRepoInfo()
-			content = fmt.Sprintf("%s -> %s", repoName, branchName)
+			content = fmt.Sprintf("%s → %s", repoName, branchName)
 		case FilesPanel:
 			content, err = gc.GetStatus(git.StatusOptions{Porcelain: true})
 		case BranchesPanel:
-			content = "\nPLACEHOLDER DATA??\n1\n2\n3a\n4b\n  main\n* feature/new-ui\n test/add-test\n hotfix/bug-123" // FIXME: Placeholder
+			branchList, err := gc.GetBranches()
+			if err != nil {
+				content = "Error getting branches: " + err.Error()
+				break
+			}
+			var builder strings.Builder
+			for _, b := range branchList {
+				if b.IsCurrent {
+					b.Name = fmt.Sprintf("(*) → %s", b.Name)
+				}
+				line := fmt.Sprintf("%-3s %s", b.LastCommit, b.Name)
+				builder.WriteString(line + "\n")
+			}
+			content = strings.TrimSpace(builder.String())
 		case CommitsPanel:
 			content = strings.Join([]string{
 				"\nPLACEHOLDER DATA??\n1\n2\nf7875b4 (HEAD -> feature/new-ui) feat: add new panel layout",
@@ -72,6 +85,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case panelContentUpdatedMsg:
 		if msg.panel == FilesPanel {
 			root := BuildTree(msg.content)
+			root.compact()
 			renderedTree := root.Render()
 			newContent := strings.Join(renderedTree, "\n")
 
@@ -141,14 +155,15 @@ func (m Model) recalculateLayout() Model {
 	contentHeight := m.height - 1
 	m.panelHeights = make([]int, totalPanels)
 	expandedHeight := int(float64(contentHeight) * 0.4)
+	collapsedHeight := 3
 
 	// --- Right Column ---
 	if m.focusedPanel == SecondaryPanel {
 		m.panelHeights[SecondaryPanel] = expandedHeight
 		m.panelHeights[MainPanel] = contentHeight - expandedHeight
 	} else {
-		m.panelHeights[SecondaryPanel] = 3
-		m.panelHeights[MainPanel] = contentHeight - 3
+		m.panelHeights[SecondaryPanel] = collapsedHeight
+		m.panelHeights[MainPanel] = contentHeight - collapsedHeight
 	}
 
 	// --- Left Column ---
@@ -158,14 +173,42 @@ func (m Model) recalculateLayout() Model {
 	if m.focusedPanel == StashPanel {
 		m.panelHeights[StashPanel] = expandedHeight
 	} else {
-		m.panelHeights[StashPanel] = 3 // Default collapsed size
+		m.panelHeights[StashPanel] = collapsedHeight
 	}
 
-	// Distribute remaining height among the other flexible panels
-	nonExpandedHeight := remainingHeight - m.panelHeights[StashPanel]
-	m.panelHeights[FilesPanel] = int(float64(nonExpandedHeight) * 0.45)    // Files panel gets 55%
-	m.panelHeights[BranchesPanel] = int(float64(nonExpandedHeight) * 0.25) // Branches panel gets 15%
-	m.panelHeights[CommitsPanel] = nonExpandedHeight - m.panelHeights[FilesPanel] - m.panelHeights[BranchesPanel]
+	flexiblePanels := []Panel{FilesPanel, BranchesPanel, CommitsPanel}
+	heightForFlex := remainingHeight - m.panelHeights[StashPanel]
+	focusedFlexPanelFound := false
+
+	for _, p := range flexiblePanels {
+		if p == m.focusedPanel {
+			focusedFlexPanelFound = true
+			break
+		}
+	}
+
+	if focusedFlexPanelFound {
+		m.panelHeights[m.focusedPanel] = expandedHeight
+		heightForOthers := heightForFlex - expandedHeight
+		otherPanels := []Panel{}
+		for _, p := range flexiblePanels {
+			if p != m.focusedPanel {
+				otherPanels = append(otherPanels, p)
+			}
+		}
+		if len(otherPanels) > 0 {
+			share := heightForOthers / len(otherPanels)
+			for _, p := range otherPanels {
+				m.panelHeights[p] = share
+			}
+			m.panelHeights[otherPanels[len(otherPanels)-1]] += heightForOthers % len(otherPanels)
+		}
+	} else {
+		// Default distribution when none of the main flexible panels are focused.
+		m.panelHeights[FilesPanel] = int(float64(heightForFlex) * 0.4)
+		m.panelHeights[BranchesPanel] = int(float64(heightForFlex) * 0.3)
+		m.panelHeights[CommitsPanel] = heightForFlex - m.panelHeights[FilesPanel] - m.panelHeights[BranchesPanel]
+	}
 
 	return m.updateViewportSizes()
 }
