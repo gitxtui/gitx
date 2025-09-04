@@ -63,7 +63,11 @@ func TestGitCommands_CloneRepository(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create local repo dir: %v", err)
 	}
-	defer os.RemoveAll(localPath)
+	defer func() {
+		if err := os.RemoveAll(localPath); err != nil {
+			t.Logf("failed to remove local repo dir: %v", err)
+		}
+	}()
 
 	// 2. Act: Perform the clone
 	g := NewGitCommands()

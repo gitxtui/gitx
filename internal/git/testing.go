@@ -23,7 +23,9 @@ func setupTestRepo(t *testing.T) (string, func()) {
 	}
 
 	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tempHome)
+	if err := os.Setenv("HOME", tempHome); err != nil {
+		t.Fatalf("failed to set HOME env var: %v", err)
+	}
 
 	originalDir, err := os.Getwd()
 	if err != nil {
@@ -65,7 +67,9 @@ func setupTestRepo(t *testing.T) (string, func()) {
 		if err := os.RemoveAll(tempHome); err != nil {
 			t.Logf("failed to remove temp home dir: %v", err)
 		}
-		os.Setenv("HOME", originalHome)
+		if err := os.Setenv("HOME", originalHome); err != nil {
+			t.Logf("failed to restore HOME env var: %v", err)
+		}
 	}
 
 	return tempDir, cleanup
@@ -106,7 +110,9 @@ func setupRemoteRepo(t *testing.T) (string, func()) {
 	}
 
 	cleanup := func() {
-		os.RemoveAll(remotePath)
+		if err := os.RemoveAll(remotePath); err != nil {
+			t.Logf("failed to remove remote repo dir: %v", err)
+		}
 	}
 	return remotePath, cleanup
 }

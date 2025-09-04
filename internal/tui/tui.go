@@ -44,7 +44,11 @@ func (a *App) watchGitDir() {
 		log.Printf("error creating file watcher: %v", err)
 		return
 	}
-	defer watcher.Close()
+	defer func() {
+		if err := watcher.Close(); err != nil {
+			log.Printf("error closing file watcher: %v", err)
+		}
+	}()
 
 	gc := git.NewGitCommands()
 	gitDir, err := gc.GetGitRepoPath()
