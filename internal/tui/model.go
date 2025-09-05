@@ -64,13 +64,13 @@ func initialModel() Model {
 func (m Model) Init() tea.Cmd {
 	// fetch initial content for all panels.
 	return tea.Batch(
-		fetchPanelContent(m.git, StatusPanel),
-		fetchPanelContent(m.git, FilesPanel),
-		fetchPanelContent(m.git, BranchesPanel),
-		fetchPanelContent(m.git, CommitsPanel),
-		fetchPanelContent(m.git, StashPanel),
-		fetchPanelContent(m.git, MainPanel),
-		fetchPanelContent(m.git, SecondaryPanel),
+		m.fetchPanelContent(StatusPanel),
+		m.fetchPanelContent(FilesPanel),
+		m.fetchPanelContent(BranchesPanel),
+		m.fetchPanelContent(CommitsPanel),
+		m.fetchPanelContent(StashPanel),
+		m.fetchPanelContent(MainPanel),
+		m.fetchPanelContent(SecondaryPanel),
 	)
 }
 

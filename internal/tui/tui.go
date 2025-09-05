@@ -3,7 +3,6 @@ package tui
 import (
 	"log"
 	"path/filepath"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -79,13 +78,11 @@ func (a *App) watchGitDir() {
 
 	for {
 		select {
-		case event, ok := <-watcher.Events:
+		case _, ok := <-watcher.Events: // We don't need to inspect the event
 			if !ok {
 				return
 			}
-			if !strings.Contains(event.Name, ".git") || strings.HasSuffix(event.Name, "HEAD") || strings.HasSuffix(event.Name, "index") {
-				needsUpdate = true
-			}
+			needsUpdate = true // Set to true on ANY event
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return

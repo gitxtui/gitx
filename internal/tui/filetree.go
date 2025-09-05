@@ -9,38 +9,40 @@ import (
 
 // Node represents a file or directory within the file tree structure.
 type Node struct {
-	name     string
-	status   string // Git status prefix (e.g., "M", "??"), only for file nodes.
-	children []*Node
+	name      string
+	status    string // Git status prefix (e.g., "M ", "MM", "??"), only for file nodes.
+	path      string // Full path relative to the repo root
+	isRenamed bool   // Flag to indicate a renamed/copied file
+	children  []*Node
 }
 
-// BuildTree parses the output of `git status --porcelain` to construct a file
-// tree. It processes each line, builds a hierarchical structure of nodes,
-// sorts them, and compacts single-child directories for a cleaner display.
+// BuildTree parses the output of `git status --porcelain` to construct a file tree.
 func BuildTree(gitStatus string) *Node {
 	root := &Node{name: "."}
-
 	lines := strings.Split(strings.TrimSpace(gitStatus), "\n")
 	if len(lines) == 1 && lines[0] == "" {
-		return root // No changes, return the root.
+		return root // No changes.
 	}
 
 	for _, line := range lines {
-		if len(line) < 4 {
+		if len(line) < 3 {
 			continue
 		}
-		spaceIndex := strings.Index(line, " ")
-		if spaceIndex == -1 {
-			continue
-		}
+		status := line[:2]
+		path := strings.TrimSpace(line[3:])
+		isRenamed := false
 
-		status := strings.TrimSpace(line[:spaceIndex])
-		path := line[spaceIndex+1:]
+		if status[0] == 'R' || status[0] == 'C' {
+			parts := strings.Split(path, " -> ")
+			if len(parts) == 2 {
+				path = parts[1]
+				isRenamed = true
+			}
+		}
 
 		parts := strings.Split(path, string(filepath.Separator))
 		currentNode := root
 		for i, part := range parts {
-			// Traverse the tree, creating nodes as necessary.
 			childNode := currentNode.findChild(part)
 			if childNode == nil {
 				childNode = &Node{name: part}
@@ -48,16 +50,16 @@ func BuildTree(gitStatus string) *Node {
 			}
 			currentNode = childNode
 
-			// The last part of the path is the file, so set its status.
 			if i == len(parts)-1 {
 				currentNode.status = status
+				currentNode.path = path
+				currentNode.isRenamed = isRenamed
 			}
 		}
 	}
 
 	root.sort()
 	root.compact()
-
 	return root
 }
 
@@ -71,8 +73,7 @@ func (n *Node) findChild(name string) *Node {
 	return nil
 }
 
-// sort recursively sorts the children of a node. Directories are listed first,
-// then files, with both groups sorted alphabetically.
+// sort recursively sorts the children of a node.
 func (n *Node) sort() {
 	if n.children == nil {
 		return
@@ -83,7 +84,7 @@ func (n *Node) sort() {
 		if isDirI != isDirJ {
 			return isDirI // Directories first.
 		}
-		return n.children[i].name < n.children[j].name // Then sort alphabetically.
+		return n.children[i].name < n.children[j].name
 	})
 
 	for _, child := range n.children {
@@ -92,23 +93,16 @@ func (n *Node) sort() {
 }
 
 // compact recursively merges directories that contain only a single sub-directory.
-// For example, a path like "src/main/go" becomes a single node.
 func (n *Node) compact() {
 	if n.children == nil {
 		return
 	}
-
-	// First, compact all children in a post-order traversal.
 	for _, child := range n.children {
 		child.compact()
 	}
-
-	// Merge this node with its child if it's a single-directory container,
-	// but do not compact the root node itself.
 	if n.name == "." {
 		return
 	}
-
 	for len(n.children) == 1 && len(n.children[0].children) > 0 {
 		child := n.children[0]
 		n.name = filepath.Join(n.name, child.name)
@@ -117,30 +111,32 @@ func (n *Node) compact() {
 }
 
 // Render traverses the tree and returns a slice of strings for display.
-func (n *Node) Render() []string {
-	return n.renderRecursive("")
+func (n *Node) Render(theme Theme) []string {
+	return n.renderRecursive("", theme)
 }
 
-// renderRecursive performs a depth-first traversal to generate the visual
-// representation of the tree, using box-drawing characters to show hierarchy.
-func (n *Node) renderRecursive(prefix string) []string {
+// renderRecursive creates raw, tab-delimited strings for the view to parse.
+func (n *Node) renderRecursive(prefix string, theme Theme) []string {
 	var lines []string
 	for i, child := range n.children {
-		// Use different connectors for the last child in a list.
-		connector := "├─"
-		newPrefix := "│  "
+		connector := theme.Tree.Connector
+		newPrefix := theme.Tree.Prefix
 		if i == len(n.children)-1 {
-			connector = "└─"
-			newPrefix = "   "
+			connector = theme.Tree.ConnectorLast
+			newPrefix = theme.Tree.PrefixLast
 		}
 
-		if len(child.children) > 0 {
-			// It's a directory.
-			lines = append(lines, fmt.Sprintf("%s%s▼ %s", prefix, connector, child.name))
-			lines = append(lines, child.renderRecursive(prefix+newPrefix)...)
-		} else {
-			// It's a file.
-			lines = append(lines, fmt.Sprintf("%s%s %s %s", prefix, connector, child.status, child.name))
+		if len(child.children) > 0 { // It's a directory
+			// Format: "prefix\tconnector\tname"
+			lines = append(lines, fmt.Sprintf("%s%s▼\t\t%s", prefix, connector, child.name))
+			lines = append(lines, child.renderRecursive(prefix+newPrefix, theme)...)
+		} else { // It's a file
+			displayName := child.name
+			if child.isRenamed {
+				displayName = child.path
+			}
+			// Format: "prefix\tconnector\tstatus\tname"
+			lines = append(lines, fmt.Sprintf("%s%s\t%s\t%s", prefix, connector, child.status, displayName))
 		}
 	}
 	return lines

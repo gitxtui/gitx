@@ -3,7 +3,48 @@ package git
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 )
+
+// Stash represents a single entry in the git stash list.
+type Stash struct {
+	Name    string
+	Branch  string
+	Message string
+}
+
+// GetStashes fetches all stashes and returns them as a slice of Stash structs.
+func (g *GitCommands) GetStashes() ([]*Stash, error) {
+	// Format: stash@{0}
+	// Branch: On master
+	// Message: WIP on master: 52f3a6b feat: add panels
+	// We use a unique delimiter to reliably parse the multi-line output for each stash.
+	format := "%gD%n%gs"
+	cmd := ExecCommand("git", "stash", "list", fmt.Sprintf("--format=%s", format))
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+
+	rawStashes := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(rawStashes) == 1 && rawStashes[0] == "" {
+		return []*Stash{}, nil // No stashes found
+	}
+
+	var stashes []*Stash
+	for i, rawStash := range rawStashes {
+		parts := strings.SplitN(rawStash, ": ", 2)
+		if len(parts) < 2 {
+			continue // Malformed entry
+		}
+		stashes = append(stashes, &Stash{
+			Name:    fmt.Sprintf("stash@{%d}", i),
+			Branch:  parts[0],
+			Message: parts[1],
+		})
+	}
+	return stashes, nil
+}
 
 // StashOptions specifies the options for the git stash command.
 type StashOptions struct {

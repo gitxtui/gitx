@@ -18,7 +18,7 @@ func (m Model) View() string {
 	return m.renderMainView()
 }
 
-// renderMainView renders the primary user interface using pre-calculated panel heights.
+// renderMainView renders the primary user interface.
 func (m Model) renderMainView() string {
 	if m.width == 0 || m.height == 0 || len(m.panelHeights) == 0 {
 		return "Initializing..."
@@ -26,20 +26,11 @@ func (m Model) renderMainView() string {
 
 	leftSectionWidth := int(float64(m.width) * 0.3)
 	rightSectionWidth := m.width - leftSectionWidth
-
-	// Define the panels for each column.
 	leftpanels := []Panel{StatusPanel, FilesPanel, BranchesPanel, CommitsPanel, StashPanel}
 	rightpanels := []Panel{MainPanel, SecondaryPanel}
-
-	// Create a map of titles for easy lookup.
 	titles := map[Panel]string{
-		MainPanel:      "Main",
-		StatusPanel:    "Status",
-		FilesPanel:     "Files",
-		BranchesPanel:  "Branches",
-		CommitsPanel:   "Commits",
-		StashPanel:     "Stash",
-		SecondaryPanel: "Secondary",
+		MainPanel: "Main", StatusPanel: "Status", FilesPanel: "Files",
+		BranchesPanel: "Branches", CommitsPanel: "Commits", StashPanel: "Stash", SecondaryPanel: "Secondary",
 	}
 
 	leftColumn := m.renderPanelColumn(leftpanels, titles, leftSectionWidth)
@@ -48,7 +39,6 @@ func (m Model) renderMainView() string {
 	content := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, rightColumn)
 	helpBar := m.renderHelpBar()
 	finalView := lipgloss.JoinVertical(lipgloss.Bottom, content, helpBar)
-
 	zone.Scan(finalView)
 	return finalView
 }
@@ -64,8 +54,7 @@ func (m Model) renderPanelColumn(panels []Panel, titles map[Panel]string, width 
 	return lipgloss.JoinVertical(lipgloss.Left, renderedPanels...)
 }
 
-// renderPanel is a convenience function that calls renderBox with the correct
-// styles and content for a specific panel.
+// renderPanel is the single source of truth for styling panel content.
 func (m Model) renderPanel(title string, width, height int, panel Panel) string {
 	var borderStyle BorderStyle
 	var titleStyle lipgloss.Style
@@ -80,28 +69,35 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 	}
 
 	formattedTitle := fmt.Sprintf("[%d] %s", int(panel), title)
-	if panel == SecondaryPanel {
-		formattedTitle = title
-	}
-
 	p := m.panels[panel]
 	content := p.content
 	contentWidth := width - 2
 
-	// For panels with a selector, render line-by-line with highlighting.
 	if panel == FilesPanel || panel == BranchesPanel || panel == CommitsPanel || panel == StashPanel {
 		var builder strings.Builder
 		for i, line := range p.lines {
 			lineID := fmt.Sprintf("%s-line-%d", panel.ID(), i)
-			var renderedLine string
+			var finalLine string // Use a single variable for the final output
+
 			if i == p.cursor && isFocused {
-				lineStyle := m.theme.SelectedLine.Width(contentWidth)
-				renderedLine = lineStyle.Render(line)
+				// --- THE CORRECTED LOGIC ---
+				// 1. Clean the raw data string.
+				cleanLine := strings.ReplaceAll(line, "\t", "  ")
+
+				// 2. Create the selection style WITH the full width.
+				selectionStyle := m.theme.SelectedLine.Width(contentWidth)
+
+				// 3. Render the final line. This string is now correctly padded.
+				finalLine = selectionStyle.Render(cleanLine)
+
 			} else {
-				lineStyle := lipgloss.NewStyle().Width(m.theme.ActivePanel.GetMaxWidth())
-				renderedLine = lineStyle.Render(line)
+				// For unselected lines, parse, style, and then apply MaxWidth to truncate if needed.
+				styledLine := styleUnselectedLine(line, panel, m.theme)
+				finalLine = lipgloss.NewStyle().MaxWidth(contentWidth).Render(styledLine)
 			}
-			builder.WriteString(zone.Mark(lineID, renderedLine))
+
+			// Write the final, correctly styled/padded line to the builder.
+			builder.WriteString(zone.Mark(lineID, finalLine))
 			builder.WriteRune('\n')
 		}
 		content = strings.TrimRight(builder.String(), "\n")
@@ -110,23 +106,14 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 
 	isScrollable := !p.viewport.AtTop() || !p.viewport.AtBottom()
 	showScrollbar := isScrollable
-
-	// For Stash and Secondary panels, only show the scrollbar when focused.
 	if panel == StashPanel || panel == SecondaryPanel {
 		showScrollbar = isScrollable && isFocused
 	}
 
 	box := renderBox(
-		formattedTitle,
-		titleStyle,
-		borderStyle,
-		p.viewport,
-		m.theme.ScrollbarThumb,
-		width,
-		height,
-		showScrollbar,
+		formattedTitle, titleStyle, borderStyle, p.viewport,
+		m.theme.ScrollbarThumb, width, height, showScrollbar,
 	)
-
 	return zone.Mark(panel.ID(), box)
 }
 
@@ -243,4 +230,83 @@ func (m Model) renderHelpBar() string {
 	helpButton := m.theme.HelpButton.Render(" help:? ")
 	markedButton := zone.Mark("help-button", helpButton)
 	return lipgloss.JoinHorizontal(lipgloss.Left, shortHelp, markedButton)
+}
+
+// styleUnselectedLine parses a raw data line and applies panel-specific styling.
+func styleUnselectedLine(line string, panel Panel, theme Theme) string {
+	switch panel {
+	case FilesPanel:
+		parts := strings.Split(line, "\t")
+		// Directory: "prefix+connector▼", "", "name"
+		// File:      "prefix+connector", "status", "name"
+		if len(parts) < 3 {
+			return line
+		}
+		prefix, status, path := parts[0], parts[1], parts[2]
+		if status == "" { // It's a directory
+			return fmt.Sprintf("%s  %s", prefix, path)
+		}
+		// It's a file
+		styledStatus := styleStatus(status, theme)
+		return fmt.Sprintf("%s %s %s", prefix, styledStatus, path)
+	case BranchesPanel:
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) != 2 {
+			return line
+		}
+		date, name := parts[0], parts[1]
+		styledDate := theme.BranchDate.Render(date)
+		styledName := theme.NormalText.Render(name)
+		if strings.Contains(name, "(*)") {
+			styledName = theme.BranchCurrent.Render(name)
+		}
+		return lipgloss.JoinHorizontal(lipgloss.Left, styledDate, " ", styledName)
+	case CommitsPanel:
+		parts := strings.SplitN(line, "\t", 4)
+		if len(parts) != 4 {
+			return line // Just a graph line
+		}
+		graph, sha, author, subject := parts[0], parts[1], parts[2], parts[3]
+		styledSHA := theme.CommitSHA.Render(sha)
+		styledAuthor := theme.CommitAuthor.Render(author)
+		if strings.HasPrefix(strings.ToLower(subject), "merge") {
+			styledAuthor = theme.CommitMerge.Render(author)
+		}
+		return fmt.Sprintf("%s %s %2s %s", graph, styledSHA, styledAuthor, subject)
+	case StashPanel:
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) != 2 {
+			return line
+		}
+		name, message := parts[0], parts[1]
+		styledName := theme.StashName.Render(name)
+		styledMessage := theme.StashMessage.Render(message)
+		return lipgloss.JoinHorizontal(lipgloss.Left, styledName, " ", styledMessage)
+	}
+	return line
+}
+
+// styleStatus takes a 2-character git status and returns a styled string.
+func styleStatus(status string, theme Theme) string {
+	if len(status) < 2 {
+		return "  "
+	}
+	if status == "??" {
+		return theme.GitUntracked.Render(status)
+	}
+	indexChar := status[0]
+	workTreeChar := status[1]
+	if indexChar == 'U' || workTreeChar == 'U' || (indexChar == 'A' && workTreeChar == 'A') || (indexChar == 'D' && workTreeChar == 'D') {
+		return theme.GitConflicted.Render(status)
+	}
+	styledIndex := styleChar(indexChar, theme.GitStaged)
+	styledWorkTree := styleChar(workTreeChar, theme.GitUnstaged)
+	return styledIndex + styledWorkTree
+}
+
+func styleChar(char byte, style lipgloss.Style) string {
+	if char == ' ' || char == '?' {
+		return " "
+	}
+	return style.Render(string(char))
 }

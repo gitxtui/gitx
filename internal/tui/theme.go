@@ -96,6 +96,27 @@ type Theme struct {
 	ScrollbarThumb lipgloss.Style
 	SelectedLine   lipgloss.Style
 
+	// Git status styles
+	GitStaged     lipgloss.Style
+	GitUnstaged   lipgloss.Style
+	GitUntracked  lipgloss.Style
+	GitConflicted lipgloss.Style
+
+	// Branch styles
+	BranchCurrent lipgloss.Style
+	BranchDate    lipgloss.Style
+
+	// Commit log styles
+	CommitSHA    lipgloss.Style
+	CommitAuthor lipgloss.Style
+	CommitMerge  lipgloss.Style
+
+	// Stash styles
+	StashName    lipgloss.Style
+	StashMessage lipgloss.Style
+
+	Tree TreeStyle
+
 	ActiveBorder   BorderStyle
 	InactiveBorder BorderStyle
 }
@@ -113,6 +134,13 @@ type BorderStyle struct {
 	BottomLeft  string
 	BottomRight string
 	Style       lipgloss.Style
+}
+
+type TreeStyle struct {
+	Connector     string
+	ConnectorLast string
+	Prefix        string
+	PrefixLast    string
 }
 
 // NewThemeFromPalette creates a Theme from a Palette.
@@ -138,6 +166,33 @@ func NewThemeFromPalette(p Palette) Theme {
 		SelectedLine: lipgloss.NewStyle().
 			Background(lipgloss.Color(p.DarkBlue)).
 			Foreground(lipgloss.Color(p.BrightWhite)),
+
+		GitStaged:     lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)),
+		GitUnstaged:   lipgloss.NewStyle().Foreground(lipgloss.Color(p.Red)),
+		GitUntracked:  lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightBlack)),
+		GitConflicted: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightRed)).Bold(true),
+
+		// Tree style
+		Tree: TreeStyle{
+			Connector:     "├─",
+			ConnectorLast: "└─",
+			Prefix:        "│  ",
+			PrefixLast:    "   ",
+		},
+
+		// Branch styles
+		BranchCurrent: lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)).Bold(true),
+		BranchDate:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
+
+		// Commit log styles
+		CommitSHA:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
+		CommitAuthor: lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)),
+		CommitMerge:  lipgloss.NewStyle().Foreground(lipgloss.Color(p.Magenta)),
+
+		// Stash styles
+		StashName:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
+		StashMessage: lipgloss.NewStyle().Foreground(lipgloss.Color(p.Fg)),
+
 		ActiveBorder: BorderStyle{
 			Top: "─", Bottom: "─", Left: "│", Right: "│",
 			TopLeft: "╭", TopRight: "╮", BottomLeft: "╰", BottomRight: "╯",

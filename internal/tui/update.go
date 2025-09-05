@@ -13,51 +13,53 @@ import (
 
 var keys = DefaultKeyMap()
 
-// panelContentUpdatedMsg is a generic message used to signal that a panel's
-// content has been updated.
 type panelContentUpdatedMsg struct {
 	panel   Panel
 	content string
 }
 
-// lineClickedMsg is sent when a line in a selectable panel is clicked.
 type lineClickedMsg struct {
 	panel     Panel
 	lineIndex int
 }
 
-// fileWatcherMsg is a message sent when the file watcher detects a change.
 type fileWatcherMsg struct{}
 
-// fetchPanelContent is a generic command that fetches content for a given panel.
-func fetchPanelContent(gc *git.GitCommands, panel Panel) tea.Cmd {
+func (m Model) fetchPanelContent(panel Panel) tea.Cmd {
 	return func() tea.Msg {
 		var content, repoName, branchName string
 		var err error
 
 		switch panel {
 		case StatusPanel:
-			repoName, branchName, err = gc.GetRepoInfo()
-			content = fmt.Sprintf("%s → %s", repoName, branchName)
+			// --- THE FIX ---
+			// Apply styling here for the simple, non-selectable status panel
+			repoName, branchName, err = m.git.GetRepoInfo()
+			if err == nil {
+				repo := m.theme.BranchCurrent.Render(repoName)
+				branch := m.theme.BranchCurrent.Render(branchName)
+				content = fmt.Sprintf("%s → %s", repo, branch)
+			}
 		case FilesPanel:
-			content, err = gc.GetStatus(git.StatusOptions{Porcelain: true})
+			content, err = m.git.GetStatus(git.StatusOptions{Porcelain: true})
 		case BranchesPanel:
-			branchList, err := gc.GetBranches()
+			branchList, err := m.git.GetBranches()
 			if err != nil {
 				content = "Error getting branches: " + err.Error()
 				break
 			}
 			var builder strings.Builder
 			for _, b := range branchList {
+				name := b.Name
 				if b.IsCurrent {
-					b.Name = fmt.Sprintf("(*) → %s", b.Name)
+					name = fmt.Sprintf("(*) → %s", b.Name)
 				}
-				line := fmt.Sprintf("%-3s %s", b.LastCommit, b.Name)
+				line := fmt.Sprintf("%s\t%s", b.LastCommit, name) // Use tab separator
 				builder.WriteString(line + "\n")
 			}
 			content = strings.TrimSpace(builder.String())
 		case CommitsPanel:
-			logs, err := gc.GetCommitLogsGraph()
+			logs, err := m.git.GetCommitLogsGraph()
 			if err != nil {
 				content = "Error getting commit logs: " + err.Error()
 				break
@@ -66,32 +68,41 @@ func fetchPanelContent(gc *git.GitCommands, panel Panel) tea.Cmd {
 			for _, log := range logs {
 				var line string
 				if log.SHA != "" {
-					// It's a commit line with data
-					line = fmt.Sprintf("%s %s [%s] %s", log.Graph, log.SHA, log.AuthorInitials, log.Subject)
+					line = fmt.Sprintf("%s\t%s\t%s\t%s", log.Graph, log.SHA, log.AuthorInitials, log.Subject) // Use tab separator
 				} else {
-					// It's a line that is only part of the graph structure
 					line = log.Graph
 				}
 				builder.WriteString(line + "\n")
 			}
 			content = strings.TrimSpace(builder.String())
 		case StashPanel:
-			content = "PLACEHOLDER DATA??\n1\n2\n\n3\n4\n5\n6stash@{0}: WIP on feature/new-ui: 52f3a6b feat: add panels" // FIXME: Placeholder
-		case MainPanel:
-			content = "\nPLACEHOLDER DATA??\n1\n2\nThis is the main panel.\n\nSelect an item from another panel to see details here." // FIXME: Placeholder
-		case SecondaryPanel:
-			content = "PLACEHOLDER DATA??\n1\n2\nThis is the secondary panel." // FIXME: Placeholder
+			stashList, err := m.git.GetStashes()
+			if err != nil {
+				content = "Error getting stashes: " + err.Error()
+				break
+			}
+			if len(stashList) == 0 {
+				content = "No stashed changes."
+				break
+			}
+			var builder strings.Builder
+			for _, s := range stashList {
+				// Create a tab-delimited string: "stash@{0}\tWIP on master: ..."
+				line := fmt.Sprintf("%s\t%s: %s", s.Name, s.Branch, s.Message)
+				builder.WriteString(line + "\n")
+			}
+			content = strings.TrimSpace(builder.String())
+		case MainPanel, SecondaryPanel:
+			content = "Loading..." // Or placeholder data
 		}
 
 		if err != nil {
 			content = "Error: " + err.Error()
 		}
-
 		return panelContentUpdatedMsg{panel: panel, content: content}
 	}
 }
 
-// Update is the central message handler for the application.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -99,41 +110,75 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case panelContentUpdatedMsg:
+		// --- START: INTELLIGENT CURSOR PRESERVATION ---
+		var selectedPath string
+		// If the updated panel is the FilesPanel and it's focused, get the path of the currently selected line.
+		if msg.panel == FilesPanel && m.focusedPanel == FilesPanel && m.panels[FilesPanel].cursor < len(m.panels[FilesPanel].lines) {
+			line := m.panels[FilesPanel].lines[m.panels[FilesPanel].cursor]
+			parts := strings.Split(line, "\t")
+			if len(parts) == 3 {
+				selectedPath = parts[2] // The path is the third element
+			}
+		}
+		// Preserve cursor index for other panels
+		oldCursor := m.panels[msg.panel].cursor
+		// --- END: INTELLIGENT CURSOR PRESERVATION ---
+
 		if msg.panel == FilesPanel {
 			root := BuildTree(msg.content)
-			root.compact()
-			renderedTree := root.Render()
-			newContent := strings.Join(renderedTree, "\n")
-
-			m.panels[FilesPanel].content = newContent
+			renderedTree := root.Render(m.theme)
 			m.panels[FilesPanel].lines = renderedTree
-			m.panels[FilesPanel].cursor = 0
-			m.panels[FilesPanel].viewport.SetContent(newContent)
+			m.panels[FilesPanel].viewport.SetContent(strings.Join(renderedTree, "\n"))
+
+			// --- START: RESTORE CURSOR BY PATH ---
+			newCursorPos := 0 // Default to top
+			if selectedPath != "" {
+				// Find the new index of the previously selected path
+				for i, line := range renderedTree {
+					parts := strings.Split(line, "\t")
+					if len(parts) == 3 && parts[2] == selectedPath {
+						newCursorPos = i
+						break
+					}
+				}
+			}
+			m.panels[FilesPanel].cursor = newCursorPos
+			// --- END: RESTORE CURSOR BY PATH ---
+
 		} else {
 			lines := strings.Split(msg.content, "\n")
-			m.panels[msg.panel].content = msg.content
 			m.panels[msg.panel].lines = lines
-			m.panels[msg.panel].cursor = 0
 			m.panels[msg.panel].viewport.SetContent(msg.content)
+			// --- THE FIX ---
+			m.panels[msg.panel].content = msg.content // Add this line
+
+			// Restore cursor for other panels
+			if oldCursor < len(lines) {
+				m.panels[msg.panel].cursor = oldCursor
+			} else if len(lines) > 0 {
+				m.panels[msg.panel].cursor = len(lines) - 1
+			} else {
+				m.panels[msg.panel].cursor = 0
+			}
 		}
 		return m, nil
+
+	case fileWatcherMsg:
+		return m, tea.Batch(
+			m.fetchPanelContent(StatusPanel),
+			m.fetchPanelContent(FilesPanel),
+			m.fetchPanelContent(BranchesPanel),
+			m.fetchPanelContent(CommitsPanel),
+			m.fetchPanelContent(StashPanel),
+			m.fetchPanelContent(MainPanel),
+			m.fetchPanelContent(SecondaryPanel),
+		)
 
 	case lineClickedMsg:
 		if msg.lineIndex < len(m.panels[msg.panel].lines) {
 			m.panels[msg.panel].cursor = msg.lineIndex
 		}
 		return m, nil
-
-	case fileWatcherMsg:
-		return m, tea.Batch(
-			fetchPanelContent(m.git, StatusPanel),
-			fetchPanelContent(m.git, FilesPanel),
-			fetchPanelContent(m.git, BranchesPanel),
-			fetchPanelContent(m.git, CommitsPanel),
-			fetchPanelContent(m.git, StashPanel),
-			fetchPanelContent(m.git, MainPanel),
-			fetchPanelContent(m.git, SecondaryPanel),
-		)
 
 	case tea.WindowSizeMsg:
 		m, cmd = m.handleWindowSizeMsg(msg)
@@ -150,7 +195,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.focusedPanel != oldFocus {
 		if m.focusedPanel == StashPanel || m.focusedPanel == SecondaryPanel {
-			// If the new panel is Stash or Secondary, scroll to top.
 			m.panels[m.focusedPanel].viewport.GotoTop()
 		}
 		m = m.recalculateLayout()
