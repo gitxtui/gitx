@@ -52,6 +52,7 @@ func (a *App) watchGitDir() {
 	gc := git.NewGitCommands()
 	gitDir, err := gc.GetGitRepoPath()
 	if err != nil {
+		// Not in a git repo, no need to watch.
 		return
 	}
 
@@ -78,11 +79,11 @@ func (a *App) watchGitDir() {
 
 	for {
 		select {
-		case _, ok := <-watcher.Events: // We don't need to inspect the event
+		case _, ok := <-watcher.Events:
 			if !ok {
 				return
 			}
-			needsUpdate = true // Set to true on ANY event
+			needsUpdate = true // Set flag on any event.
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return

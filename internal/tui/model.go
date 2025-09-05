@@ -34,7 +34,7 @@ func initialModel() Model {
 	repoName, branchName, _ := gc.GetRepoInfo()
 	initialContent := "Loading..."
 
-	// Create a slice to hold all our panels.
+	// Create a slice to hold all UI panels.
 	panels := make([]panel, totalPanels)
 	for i := range panels {
 		vp := viewport.New(0, 0)

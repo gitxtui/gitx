@@ -2,6 +2,7 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
+// Palette defines a set of colors for a theme.
 type Palette struct {
 	Black, Red, Green, Yellow, Blue, Magenta, Cyan, White,
 	BrightBlack, BrightRed, BrightGreen, BrightYellow, BrightBlue, BrightMagenta, BrightCyan, BrightWhite,
@@ -85,8 +86,6 @@ var Palettes = map[string]Palette{
 
 // Theme represents the styles for different components of the UI.
 type Theme struct {
-	ActivePanel    lipgloss.Style
-	InactivePanel  lipgloss.Style
 	ActiveTitle    lipgloss.Style
 	InactiveTitle  lipgloss.Style
 	NormalText     lipgloss.Style
@@ -95,33 +94,23 @@ type Theme struct {
 	HelpButton     lipgloss.Style
 	ScrollbarThumb lipgloss.Style
 	SelectedLine   lipgloss.Style
-
-	// Git status styles
-	GitStaged     lipgloss.Style
-	GitUnstaged   lipgloss.Style
-	GitUntracked  lipgloss.Style
-	GitConflicted lipgloss.Style
-
-	// Branch styles
-	BranchCurrent lipgloss.Style
-	BranchDate    lipgloss.Style
-
-	// Commit log styles
-	CommitSHA    lipgloss.Style
-	CommitAuthor lipgloss.Style
-	CommitMerge  lipgloss.Style
-
-	// Stash styles
-	StashName    lipgloss.Style
-	StashMessage lipgloss.Style
-
-	Tree TreeStyle
-
+	GitStaged      lipgloss.Style
+	GitUnstaged    lipgloss.Style
+	GitUntracked   lipgloss.Style
+	GitConflicted  lipgloss.Style
+	BranchCurrent  lipgloss.Style
+	BranchDate     lipgloss.Style
+	CommitSHA      lipgloss.Style
+	CommitAuthor   lipgloss.Style
+	CommitMerge    lipgloss.Style
+	GraphEdge      lipgloss.Style
+	GraphNode      lipgloss.Style
+	StashName      lipgloss.Style
+	StashMessage   lipgloss.Style
 	ActiveBorder   BorderStyle
 	InactiveBorder BorderStyle
+	Tree           TreeStyle
 }
-
-const scrollThumb string = "▐"
 
 // BorderStyle defines the characters and styles for a panel's border.
 type BorderStyle struct {
@@ -136,63 +125,49 @@ type BorderStyle struct {
 	Style       lipgloss.Style
 }
 
+// TreeStyle defines the characters used to render the file tree.
 type TreeStyle struct {
-	Connector     string
-	ConnectorLast string
-	Prefix        string
-	PrefixLast    string
+	Connector, ConnectorLast, Prefix, PrefixLast string
 }
 
-// NewThemeFromPalette creates a Theme from a Palette.
+const (
+	scrollThumb = "▐"
+	graphNode   = "○"
+)
+
+// Themes holds all the available themes, generated from palettes.
+var Themes = map[string]Theme{}
+
+func init() {
+	for name, p := range Palettes {
+		Themes[name] = NewThemeFromPalette(p)
+	}
+}
+
+// NewThemeFromPalette creates a Theme from a given color Palette.
 func NewThemeFromPalette(p Palette) Theme {
 	return Theme{
-		ActiveTitle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(p.Bg)).
-			Background(lipgloss.Color(p.BrightCyan)),
-		InactiveTitle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(p.Fg)).
-			Background(lipgloss.Color(p.Black)),
-		NormalText: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(p.Fg)),
-		HelpTitle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(p.Green)).
-			Bold(true),
-		HelpKey: lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
-		HelpButton: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(p.Bg)).
-			Background(lipgloss.Color(p.Green)).
-			Margin(0, 1),
+		ActiveTitle:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Bg)).Background(lipgloss.Color(p.BrightCyan)),
+		InactiveTitle:  lipgloss.NewStyle().Foreground(lipgloss.Color(p.Fg)).Background(lipgloss.Color(p.Black)),
+		NormalText:     lipgloss.NewStyle().Foreground(lipgloss.Color(p.Fg)),
+		HelpTitle:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)).Bold(true),
+		HelpKey:        lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
+		HelpButton:     lipgloss.NewStyle().Foreground(lipgloss.Color(p.Bg)).Background(lipgloss.Color(p.Green)).Margin(0, 1),
 		ScrollbarThumb: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightGreen)),
-		SelectedLine: lipgloss.NewStyle().
-			Background(lipgloss.Color(p.DarkBlue)).
-			Foreground(lipgloss.Color(p.BrightWhite)),
-
-		GitStaged:     lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)),
-		GitUnstaged:   lipgloss.NewStyle().Foreground(lipgloss.Color(p.Red)),
-		GitUntracked:  lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightBlack)),
-		GitConflicted: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightRed)).Bold(true),
-
-		// Tree style
-		Tree: TreeStyle{
-			Connector:     "├─",
-			ConnectorLast: "└─",
-			Prefix:        "│  ",
-			PrefixLast:    "   ",
-		},
-
-		// Branch styles
-		BranchCurrent: lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)).Bold(true),
-		BranchDate:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
-
-		// Commit log styles
-		CommitSHA:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
-		CommitAuthor: lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)),
-		CommitMerge:  lipgloss.NewStyle().Foreground(lipgloss.Color(p.Magenta)),
-
-		// Stash styles
-		StashName:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
-		StashMessage: lipgloss.NewStyle().Foreground(lipgloss.Color(p.Fg)),
-
+		SelectedLine:   lipgloss.NewStyle().Background(lipgloss.Color(p.DarkBlue)).Foreground(lipgloss.Color(p.BrightWhite)),
+		GitStaged:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)),
+		GitUnstaged:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Red)),
+		GitUntracked:   lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightBlack)),
+		GitConflicted:  lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightRed)).Bold(true),
+		BranchCurrent:  lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)).Bold(true),
+		BranchDate:     lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
+		CommitSHA:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
+		CommitAuthor:   lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)),
+		CommitMerge:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Magenta)),
+		GraphEdge:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightBlack)),
+		GraphNode:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)),
+		StashName:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
+		StashMessage:   lipgloss.NewStyle().Foreground(lipgloss.Color(p.Fg)),
 		ActiveBorder: BorderStyle{
 			Top: "─", Bottom: "─", Left: "│", Right: "│",
 			TopLeft: "╭", TopRight: "╮", BottomLeft: "╰", BottomRight: "╯",
@@ -203,15 +178,12 @@ func NewThemeFromPalette(p Palette) Theme {
 			TopLeft: "╭", TopRight: "╮", BottomLeft: "╰", BottomRight: "╯",
 			Style: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightBlack)),
 		},
-	}
-}
-
-// Themes holds all the available themes, generated from palettes.
-var Themes = map[string]Theme{}
-
-func init() {
-	for name, p := range Palettes {
-		Themes[name] = NewThemeFromPalette(p)
+		Tree: TreeStyle{
+			Connector:     "",
+			ConnectorLast: "",
+			Prefix:        "    ",
+			PrefixLast:    "   ",
+		},
 	}
 }
 

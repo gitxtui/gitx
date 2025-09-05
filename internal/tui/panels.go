@@ -9,6 +9,7 @@ import (
 // Panel is an enumeration of all the panels in the UI.
 type Panel int
 
+// Defines the available panels in the UI.
 const (
 	MainPanel Panel = iota
 	StatusPanel

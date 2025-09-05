@@ -83,8 +83,10 @@ func parseCommitLogs(output string) []CommitLog {
 	lines := strings.Split(output, "\n")
 
 	for _, line := range lines {
-		if strings.Contains(line, "<COMMIT>") {
-			parts := strings.SplitN(line, "<COMMIT>", 2)
+		lineWithNodeReplaced := strings.ReplaceAll(line, "*", "○")
+
+		if strings.Contains(lineWithNodeReplaced, "<COMMIT>") {
+			parts := strings.SplitN(lineWithNodeReplaced, "<COMMIT>", 2)
 			graph := parts[0]
 			commitData := strings.SplitN(parts[1], "|", 3)
 
@@ -97,8 +99,7 @@ func parseCommitLogs(output string) []CommitLog {
 				})
 			}
 		} else {
-			// This line is purely for drawing the graph.
-			logs = append(logs, CommitLog{Graph: line})
+			logs = append(logs, CommitLog{Graph: lineWithNodeReplaced})
 		}
 	}
 	return logs
