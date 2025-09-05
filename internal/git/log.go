@@ -1,3 +1,4 @@
+// Package git provides a wrapper around common git commands.
 package git
 
 import (
@@ -6,31 +7,74 @@ import (
 	"unicode"
 )
 
-// CommitLog represents a single line in the commit history, which could be a
-// commit or just part of the graph.
+// CommitLog represents a single entry in the git log graph.
+// It can be a commit or a line representing the graph structure.
 type CommitLog struct {
-	Graph          string
-	SHA            string
-	AuthorInitials string
-	Subject        string
+	Graph          string // The graph structure string.
+	SHA            string // The abbreviated commit hash.
+	AuthorInitials string // The initials of the commit author.
+	Subject        string // The subject line of the commit message.
 }
 
-// GetCommitLogsGraph fetches the git log with a graph and returns a slice of CommitLog structs.
+// LogOptions specifies the options for the git log command.
+type LogOptions struct {
+	Oneline  bool
+	Graph    bool
+	All      bool
+	MaxCount int
+	Format   string
+	Color    string
+}
+
+// GetCommitLogsGraph fetches the git log with a graph format and returns it as a
+// slice of CommitLog structs.
 func (g *GitCommands) GetCommitLogsGraph() ([]CommitLog, error) {
-	// We use a custom format with a unique delimiter "<COMMIT>" to reliably parse the output.
+	// A custom format with a unique delimiter is used to reliably parse the output.
 	format := "<COMMIT>%h|%an|%s"
 	options := LogOptions{
 		Graph:  true,
 		Format: format,
 		Color:  "never",
+		All:    true,
 	}
 
 	output, err := g.ShowLog(options)
 	if err != nil {
 		return nil, err
 	}
-
 	return parseCommitLogs(strings.TrimSpace(output)), nil
+}
+
+// ShowLog executes the `git log` command with the given options and returns the raw output.
+func (g *GitCommands) ShowLog(options LogOptions) (string, error) {
+	args := []string{"log"}
+
+	if options.Format != "" {
+		args = append(args, fmt.Sprintf("--pretty=format:%s", options.Format))
+	} else if options.Oneline {
+		args = append(args, "--oneline")
+	}
+
+	if options.Graph {
+		args = append(args, "--graph")
+	}
+	if options.All {
+		args = append(args, "--all")
+	}
+	if options.MaxCount > 0 {
+		args = append(args, fmt.Sprintf("-%d", options.MaxCount))
+	}
+	if options.Color != "" {
+		args = append(args, fmt.Sprintf("--color=%s", options.Color))
+	}
+
+	cmd := ExecCommand("git", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("failed to get log: %w", err)
+	}
+
+	return string(output), nil
 }
 
 // parseCommitLogs processes the raw git log string into a slice of CommitLog structs.
@@ -40,7 +84,6 @@ func parseCommitLogs(output string) []CommitLog {
 
 	for _, line := range lines {
 		if strings.Contains(line, "<COMMIT>") {
-			// This line represents a commit.
 			parts := strings.SplitN(line, "<COMMIT>", 2)
 			graph := parts[0]
 			commitData := strings.SplitN(parts[1], "|", 3)
@@ -58,12 +101,10 @@ func parseCommitLogs(output string) []CommitLog {
 			logs = append(logs, CommitLog{Graph: line})
 		}
 	}
-
 	return logs
 }
 
-// getInitials extracts the first two letters from a name for display.
-// It handles single names, multiple names, and empty strings.
+// getInitials extracts up to two initials from a name string for concise display.
 func getInitials(name string) string {
 	name = strings.TrimSpace(name)
 	if len(name) == 0 {
@@ -72,11 +113,11 @@ func getInitials(name string) string {
 
 	parts := strings.Fields(name)
 	if len(parts) > 1 {
-		// For "John Doe", return "JD"
+		// For "John Doe", return "JD".
 		return strings.ToUpper(string(parts[0][0]) + string(parts[len(parts)-1][0]))
 	}
 
-	// For "John", return "JO"
+	// For a single name like "John", return "JO".
 	var initials []rune
 	for _, r := range name {
 		if unicode.IsLetter(r) {
@@ -94,47 +135,5 @@ func getInitials(name string) string {
 		return string(initials[0:2])
 	}
 
-	return "" // Should not happen if name is not empty
-}
-
-// LogOptions specifies the options for the git log command.
-type LogOptions struct {
-	Oneline  bool
-	Graph    bool
-	Decorate bool
-	MaxCount int
-	Format   string
-	Color    string
-}
-
-// ShowLog returns the commit logs.
-func (g *GitCommands) ShowLog(options LogOptions) (string, error) {
-	args := []string{"log"}
-
-	if options.Format != "" {
-		args = append(args, fmt.Sprintf("--pretty=format:%s", options.Format))
-	} else if options.Oneline {
-		args = append(args, "--oneline")
-	}
-
-	if options.Graph {
-		args = append(args, "--graph")
-	}
-	if options.Decorate {
-		args = append(args, "--decorate")
-	}
-	if options.MaxCount > 0 {
-		args = append(args, fmt.Sprintf("-%d", options.MaxCount))
-	}
-	if options.Color != "" {
-		args = append(args, fmt.Sprintf("--color=%s", options.Color))
-	}
-
-	cmd := ExecCommand("git", args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return string(output), fmt.Errorf("failed to get log: %v", err)
-	}
-
-	return string(output), nil
+	return ""
 }
