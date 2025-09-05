@@ -371,7 +371,6 @@ func TestModel_LineSelectionAndScrolling(t *testing.T) {
 
 func TestModel_Update_FileWatcher(t *testing.T) {
 	m := initialModel()
-	// Use the blank identifier _ to ignore the returned model
 	_, cmd := m.Update(fileWatcherMsg{})
 
 	if cmd == nil {
@@ -379,9 +378,9 @@ func TestModel_Update_FileWatcher(t *testing.T) {
 	}
 
 	cmds := cmd().(tea.BatchMsg)
-	// Cast totalPanels to an int for comparison
-	if len(cmds) != int(totalPanels) {
-		t.Errorf("expected %d commands, got %d", totalPanels, len(cmds))
+	expectedCmds := 5
+	if len(cmds) != expectedCmds {
+		t.Errorf("expected %d commands, got %d", expectedCmds, len(cmds))
 	}
 }
 
