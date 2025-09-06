@@ -6,7 +6,7 @@ const (
 	// --- Layout Ratios ---
 	// leftPanelWidthRatio defines the percentage of the total width for the left column.
 	// rightPanelWidthRatio is "1 - leftPanelWidthRatio".
-	leftPanelWidthRatio = 0.4
+	leftPanelWidthRatio = 0.35
 	// helpViewWidthRatio defines the width of the help view relative to the total width.
 	helpViewWidthRatio = 0.5
 	// helpViewHeightRatio defines the height of the help view relative to the total height.
