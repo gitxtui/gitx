@@ -85,7 +85,12 @@ func (m *Model) panelShortHelp() []key.Binding {
 	switch m.focusedPanel {
 	case FilesPanel:
 		return keys.FilesPanelHelp()
-	// TODO: Add cases for rest of the Panels
+	case BranchesPanel:
+		return keys.BranchesPanelHelp()
+	case CommitsPanel:
+		return keys.CommitsPanelHelp()
+	case StashPanel:
+		return keys.StashPanelHelp()
 	default:
 		return keys.ShortHelp()
 	}

@@ -33,6 +33,22 @@ type KeyMap struct {
 	Stash     key.Binding
 	StashAll  key.Binding
 	Commit    key.Binding
+
+	// Keybindings for BranchesPanel
+	Checkout     key.Binding
+	NewBranch    key.Binding
+	DeleteBranch key.Binding
+	RenameBranch key.Binding
+
+	// Keybindings for CommitsPanel
+	AmendCommit   key.Binding
+	Revert        key.Binding
+	ResetToCommit key.Binding
+
+	// Keybindings for StashPanel
+	StashApply key.Binding
+	StashPop   key.Binding
+	StashDrop  key.Binding
 }
 
 // HelpSection is a struct to hold a title and keybindings for a help section.
@@ -61,6 +77,18 @@ func (k KeyMap) FullHelp() []HelpSection {
 			},
 		},
 		{
+			Title:    "Branches",
+			Bindings: []key.Binding{k.Checkout, k.NewBranch, k.DeleteBranch, k.RenameBranch},
+		},
+		{
+			Title:    "Commits",
+			Bindings: []key.Binding{k.AmendCommit, k.Revert, k.ResetToCommit},
+		},
+		{
+			Title:    "Stash",
+			Bindings: []key.Binding{k.StashApply, k.StashPop, k.StashDrop},
+		},
+		{
 			Title:    "Misc",
 			Bindings: []key.Binding{k.SwitchTheme, k.ToggleHelp, k.Escape, k.Quit},
 		},
@@ -80,6 +108,24 @@ func (k KeyMap) HelpViewHelp() []key.Binding {
 // FilesPanelHelp returns a slice of key.Binding containing help for keybindings related to Files Panel.
 func (k KeyMap) FilesPanelHelp() []key.Binding {
 	help := []key.Binding{k.Commit, k.Stash, k.Discard, k.StageItem}
+	return append(help, k.ShortHelp()...)
+}
+
+// BranchesPanelHelp returns a slice of key.Binding for the Branches Panel help bar.
+func (k KeyMap) BranchesPanelHelp() []key.Binding {
+	help := []key.Binding{k.Checkout, k.NewBranch, k.DeleteBranch}
+	return append(help, k.ShortHelp()...)
+}
+
+// CommitsPanelHelp returns a slice of key.Binding for the Commits Panel help bar.
+func (k KeyMap) CommitsPanelHelp() []key.Binding {
+	help := []key.Binding{k.AmendCommit, k.Revert, k.ResetToCommit}
+	return append(help, k.ShortHelp()...)
+}
+
+// StashPanelHelp returns a slice of key.Binding for the Stash Panel help bar.
+func (k KeyMap) StashPanelHelp() []key.Binding {
+	help := []key.Binding{k.StashApply, k.StashPop, k.StashDrop}
 	return append(help, k.ShortHelp()...)
 }
 
@@ -180,6 +226,49 @@ func DefaultKeyMap() KeyMap {
 		Commit: key.NewBinding(
 			key.WithKeys("c"),
 			key.WithHelp("c", "Commit"),
+		),
+
+		Checkout: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "Checkout"),
+		),
+		NewBranch: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "New Branch"),
+		),
+		DeleteBranch: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "Delete"),
+		),
+		RenameBranch: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "Rename"),
+		),
+
+		AmendCommit: key.NewBinding(
+			key.WithKeys("A"),
+			key.WithHelp("A", "Amend"),
+		),
+		Revert: key.NewBinding(
+			key.WithKeys("v"),
+			key.WithHelp("v", "Revert"),
+		),
+		ResetToCommit: key.NewBinding(
+			key.WithKeys("R"),
+			key.WithHelp("R", "Reset to Commit"),
+		),
+
+		StashApply: key.NewBinding(
+			key.WithKeys("a"),
+			key.WithHelp("a", "Apply"),
+		),
+		StashPop: key.NewBinding(
+			key.WithKeys("p"),
+			key.WithHelp("p", "Pop"),
+		),
+		StashDrop: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "Drop"),
 		),
 	}
 }
