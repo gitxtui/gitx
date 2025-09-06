@@ -18,7 +18,7 @@ type Node struct {
 
 // BuildTree parses the output of `git status --porcelain` to construct a file tree.
 func BuildTree(gitStatus string) *Node {
-	root := &Node{name: "."}
+	root := &Node{name: repoRootNodeName}
 
 	lines := strings.Split(gitStatus, "\n")
 	if len(lines) == 1 && lines[0] == "" {
@@ -26,15 +26,15 @@ func BuildTree(gitStatus string) *Node {
 	}
 
 	for _, line := range lines {
-		if len(line) < 3 {
+		if len(line) < porcelainStatusPrefixLength {
 			continue
 		}
 		status := line[:2]
-		path := strings.TrimSpace(line[3:])
+		path := strings.TrimSpace(line[porcelainStatusPrefixLength:])
 		isRenamed := false
 
 		if status[0] == 'R' || status[0] == 'C' {
-			parts := strings.Split(path, " -> ")
+			parts := strings.Split(path, gitRenameDelimiter)
 			if len(parts) == 2 {
 				path = parts[1]
 				isRenamed = true
@@ -111,7 +111,7 @@ func (n *Node) compact() {
 	}
 
 	// Do not compact the root node itself.
-	if n.name == "." {
+	if n.name == repoRootNodeName {
 		return
 	}
 
@@ -131,7 +131,7 @@ func (n *Node) renderRecursive(prefix string, theme Theme) []string {
 		newPrefix := prefix + theme.Tree.Prefix
 
 		if len(child.children) > 0 { // It's a directory
-			displayName := "▼ " + child.name
+			displayName := dirExpandedIcon + child.name
 			lines = append(lines, fmt.Sprintf("%s\t\t%s", prefix, displayName))
 			lines = append(lines, child.renderRecursive(newPrefix, theme)...)
 		} else { // It's a file.

@@ -32,7 +32,7 @@ func initialModel() Model {
 	themeNames := ThemeNames()
 	gc := git.NewGitCommands()
 	repoName, branchName, _ := gc.GetRepoInfo()
-	initialContent := "Loading..."
+	initialContent := initialContentLoading
 
 	// Create a slice to hold all UI panels.
 	panels := make([]panel, totalPanels)

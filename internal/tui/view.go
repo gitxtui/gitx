@@ -22,10 +22,10 @@ func (m Model) View() string {
 // renderMainView renders the primary user interface with all panels.
 func (m Model) renderMainView() string {
 	if m.width == 0 || m.height == 0 || len(m.panelHeights) == 0 {
-		return "Initializing..."
+		return initialContentLoading
 	}
 
-	leftSectionWidth := int(float64(m.width) * 0.3)
+	leftSectionWidth := int(float64(m.width) * leftPanelWidthRatio)
 	rightSectionWidth := m.width - leftSectionWidth
 
 	leftpanels := []Panel{StatusPanel, FilesPanel, BranchesPanel, CommitsPanel, StashPanel}
@@ -79,7 +79,7 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 	}
 
 	content := p.content
-	contentWidth := width - 2
+	contentWidth := width - borderWidth
 
 	// For selectable panels, render each line individually.
 	if panel == FilesPanel || panel == BranchesPanel || panel == CommitsPanel || panel == StashPanel {
@@ -154,8 +154,8 @@ func (m Model) renderHelpBar() string {
 // renderBox manually constructs a bordered box with a title and an integrated scrollbar.
 func renderBox(title string, titleStyle lipgloss.Style, borderStyle BorderStyle, vp viewport.Model, thumbStyle lipgloss.Style, width, height int, showScrollbar bool) string {
 	contentLines := strings.Split(vp.View(), "\n")
-	contentWidth := width - 2
-	contentHeight := height - 2
+	contentWidth := width - borderWidth
+	contentHeight := height - titleBarHeight
 	if contentHeight < 0 {
 		contentHeight = 0
 	}
@@ -185,7 +185,7 @@ func renderBox(title string, titleStyle lipgloss.Style, borderStyle BorderStyle,
 		}
 
 		if thumbPosition == i {
-			builder.WriteString(thumbStyle.Render(scrollThumb))
+			builder.WriteString(thumbStyle.Render(scrollThumbChar))
 		} else {
 			builder.WriteString(borderStyle.Style.Render(borderStyle.Right))
 		}
@@ -205,7 +205,7 @@ func (m Model) generateHelpContent() string {
 	var renderedSections []string
 	for _, section := range helpSections {
 		title := m.theme.HelpTitle.
-			MarginLeft(9).
+			MarginLeft(helpTitleMargin).
 			Render(strings.Join([]string{"---", section.Title, "---"}, " "))
 		bindings := m.renderHelpSection(section.Bindings)
 		renderedSections = append(renderedSections, lipgloss.JoinVertical(lipgloss.Left, title, bindings))
@@ -216,7 +216,7 @@ func (m Model) generateHelpContent() string {
 // renderHelpSection formats a set of keybindings into a two-column layout.
 func (m Model) renderHelpSection(bindings []key.Binding) string {
 	var helpText string
-	keyStyle := m.theme.HelpKey.Width(12).Align(lipgloss.Right).MarginRight(1)
+	keyStyle := m.theme.HelpKey.Width(helpKeyWidth).Align(lipgloss.Right).MarginRight(helpDescMargin)
 	descStyle := lipgloss.NewStyle()
 	for _, kb := range bindings {
 		key := kb.Help().Key
@@ -264,7 +264,15 @@ func styleUnselectedLine(line string, panel Panel, theme Theme) string {
 		graph, sha, author, subject := parts[0], parts[1], parts[2], parts[3]
 		styledGraph := styleGraph(graph, theme)
 		styledSHA := theme.CommitSHA.Render(sha)
+
 		styledAuthor := theme.CommitAuthor.Render(author)
+
+		commitNodeIndex := strings.Index(graph, graphNodeChar)
+		if commitNodeIndex != -1 {
+			authorColorStyle := theme.GraphColors[commitNodeIndex%len(theme.GraphColors)]
+			styledAuthor = authorColorStyle.Render(author)
+		}
+
 		if strings.HasPrefix(strings.ToLower(subject), "merge") {
 			styledAuthor = theme.CommitMerge.Render(author)
 		}
@@ -312,10 +320,11 @@ func styleChar(char byte, style lipgloss.Style) string {
 // styleGraph applies colors to the git log graph characters.
 func styleGraph(graph string, theme Theme) string {
 	var styled strings.Builder
-	for _, char := range graph {
+	for i, char := range graph {
 		switch char {
-		case '|', '\\', '/', '_', '(', ')', '-', '╮', '╯', '╰':
-			styled.WriteString(theme.GraphEdge.Render(string(char)))
+		case '|', '\\', '/':
+			color := theme.GraphColors[i%len(theme.GraphColors)]
+			styled.WriteString(color.Render(string(char)))
 		case '○':
 			styled.WriteString(theme.GraphNode.Render("○"))
 		default:

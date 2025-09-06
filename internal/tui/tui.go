@@ -73,7 +73,7 @@ func (a *App) watchGitDir() {
 		}
 	}
 
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(fileWatcherPollInterval)
 	defer ticker.Stop()
 	var needsUpdate bool
 

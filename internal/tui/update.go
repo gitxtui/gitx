@@ -194,7 +194,7 @@ func (m Model) fetchPanelContent(panel Panel) tea.Cmd {
 				}
 			}
 		case MainPanel, SecondaryPanel:
-			content = "Loading..."
+			content = initialContentLoading
 		}
 
 		if err != nil {
@@ -209,8 +209,8 @@ func (m Model) handleWindowSizeMsg(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	m.width = msg.Width
 	m.height = msg.Height
 	m.help.Width = msg.Width
-	m.helpViewport.Width = int(float64(m.width) * 0.5)
-	m.helpViewport.Height = int(float64(m.height) * 0.75)
+	m.helpViewport.Width = int(float64(m.width) * helpViewWidthRatio)
+	m.helpViewport.Height = int(float64(m.height) * helpViewHeightRatio)
 
 	m = m.recalculateLayout()
 	return m, nil
@@ -376,26 +376,25 @@ func (m Model) recalculateLayout() Model {
 
 	contentHeight := m.height - 1 // Account for help bar
 	m.panelHeights = make([]int, totalPanels)
-	expandedHeight := int(float64(contentHeight) * 0.4)
-	collapsedHeight := 3
+	expandedHeight := int(float64(contentHeight) * expandedPanelHeightRatio)
 
 	// Right Column Layout
 	if m.focusedPanel == SecondaryPanel {
 		m.panelHeights[SecondaryPanel] = expandedHeight
 		m.panelHeights[MainPanel] = contentHeight - expandedHeight
 	} else {
-		m.panelHeights[SecondaryPanel] = collapsedHeight
-		m.panelHeights[MainPanel] = contentHeight - collapsedHeight
+		m.panelHeights[SecondaryPanel] = collapsedPanelHeight
+		m.panelHeights[MainPanel] = contentHeight - collapsedPanelHeight
 	}
 
 	// Left Column Layout
-	m.panelHeights[StatusPanel] = 3
+	m.panelHeights[StatusPanel] = statusPanelHeight
 	remainingHeight := contentHeight - m.panelHeights[StatusPanel]
 
 	if m.focusedPanel == StashPanel {
 		m.panelHeights[StashPanel] = expandedHeight
 	} else {
-		m.panelHeights[StashPanel] = collapsedHeight
+		m.panelHeights[StashPanel] = collapsedPanelHeight
 	}
 
 	flexiblePanels := []Panel{FilesPanel, BranchesPanel, CommitsPanel}
@@ -437,18 +436,15 @@ func (m Model) recalculateLayout() Model {
 
 // updateViewportSizes applies the calculated dimensions from the model to the viewports.
 func (m Model) updateViewportSizes() Model {
-	horizontalBorderWidth := 2
-	titleBarHeight := 2
-
-	rightSectionWidth := m.width - int(float64(m.width)*0.3)
-	rightContentWidth := rightSectionWidth - horizontalBorderWidth
+	leftSectionWidth := int(float64(m.width) * leftPanelWidthRatio)
+	rightSectionWidth := m.width - leftSectionWidth
+	rightContentWidth := rightSectionWidth - borderWidth
 	m.panels[MainPanel].viewport.Width = rightContentWidth
 	m.panels[MainPanel].viewport.Height = m.panelHeights[MainPanel] - titleBarHeight
 	m.panels[SecondaryPanel].viewport.Width = rightContentWidth
 	m.panels[SecondaryPanel].viewport.Height = m.panelHeights[SecondaryPanel] - titleBarHeight
 
-	leftSectionWidth := int(float64(m.width) * 0.3)
-	leftContentWidth := leftSectionWidth - horizontalBorderWidth
+	leftContentWidth := leftSectionWidth - borderWidth
 	leftPanels := []Panel{StatusPanel, FilesPanel, BranchesPanel, CommitsPanel, StashPanel}
 	for _, panel := range leftPanels {
 		m.panels[panel].viewport.Width = leftContentWidth

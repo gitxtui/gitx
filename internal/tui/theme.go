@@ -1,6 +1,10 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"sort"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 // Palette defines a set of colors for a theme.
 type Palette struct {
@@ -105,6 +109,7 @@ type Theme struct {
 	CommitMerge    lipgloss.Style
 	GraphEdge      lipgloss.Style
 	GraphNode      lipgloss.Style
+	GraphColors    []lipgloss.Style
 	StashName      lipgloss.Style
 	StashMessage   lipgloss.Style
 	ActiveBorder   BorderStyle
@@ -129,11 +134,6 @@ type BorderStyle struct {
 type TreeStyle struct {
 	Connector, ConnectorLast, Prefix, PrefixLast string
 }
-
-const (
-	scrollThumb = "▐"
-	graphNode   = "○"
-)
 
 // Themes holds all the available themes, generated from palettes.
 var Themes = map[string]Theme{}
@@ -166,23 +166,35 @@ func NewThemeFromPalette(p Palette) Theme {
 		CommitMerge:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Magenta)),
 		GraphEdge:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightBlack)),
 		GraphNode:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)),
-		StashName:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
-		StashMessage:   lipgloss.NewStyle().Foreground(lipgloss.Color(p.Fg)),
+		GraphColors: []lipgloss.Style{
+			lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)),
+			lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
+			lipgloss.NewStyle().Foreground(lipgloss.Color(p.Blue)),
+			lipgloss.NewStyle().Foreground(lipgloss.Color(p.Magenta)),
+			lipgloss.NewStyle().Foreground(lipgloss.Color(p.Cyan)),
+			lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightGreen)),
+			lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightYellow)),
+			lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightBlue)),
+			lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightMagenta)),
+			lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightCyan)),
+		},
+		StashName:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Yellow)),
+		StashMessage: lipgloss.NewStyle().Foreground(lipgloss.Color(p.Fg)),
 		ActiveBorder: BorderStyle{
-			Top: "─", Bottom: "─", Left: "│", Right: "│",
-			TopLeft: "╭", TopRight: "╮", BottomLeft: "╰", BottomRight: "╯",
+			Top: borderTop, Bottom: borderBottom, Left: borderLeft, Right: borderRight,
+			TopLeft: borderTopLeft, TopRight: borderTopRight, BottomLeft: borderBottomLeft, BottomRight: borderBottomRight,
 			Style: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightCyan)),
 		},
 		InactiveBorder: BorderStyle{
-			Top: "─", Bottom: "─", Left: "│", Right: "│",
-			TopLeft: "╭", TopRight: "╮", BottomLeft: "╰", BottomRight: "╯",
+			Top: borderTop, Bottom: borderBottom, Left: borderLeft, Right: borderRight,
+			TopLeft: borderTopLeft, TopRight: borderTopRight, BottomLeft: borderBottomLeft, BottomRight: borderBottomRight,
 			Style: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightBlack)),
 		},
 		Tree: TreeStyle{
-			Connector:     "",
-			ConnectorLast: "",
-			Prefix:        "    ",
-			PrefixLast:    "   ",
+			Connector:     treeConnector,
+			ConnectorLast: treeConnectorLast,
+			Prefix:        treePrefix,
+			PrefixLast:    treePrefixLast,
 		},
 	}
 }
@@ -193,5 +205,6 @@ func ThemeNames() []string {
 	for name := range Palettes {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
 }

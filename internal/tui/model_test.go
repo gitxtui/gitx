@@ -99,7 +99,7 @@ func TestModel_ConditionalScrollbar(t *testing.T) {
 	t.Run("Scrollbar is hidden when StashPanel is not focused", func(t *testing.T) {
 		tm.focusedPanel = MainPanel
 		rendered := tm.renderPanel("Stash", 30, tm.panelHeights[StashPanel], StashPanel)
-		if strings.Contains(rendered, scrollThumb) {
+		if strings.Contains(rendered, scrollThumbChar) {
 			t.Error("Scrollbar thumb should be hidden but was found")
 		}
 	})
@@ -107,7 +107,7 @@ func TestModel_ConditionalScrollbar(t *testing.T) {
 	t.Run("Scrollbar is visible when StashPanel is focused", func(t *testing.T) {
 		tm.focusedPanel = StashPanel
 		rendered := tm.renderPanel("Stash", 30, tm.panelHeights[StashPanel], StashPanel)
-		if !strings.Contains(rendered, scrollThumb) {
+		if !strings.Contains(rendered, scrollThumbChar) {
 			t.Error("Scrollbar thumb should be visible but was not found")
 		}
 	})
@@ -115,7 +115,7 @@ func TestModel_ConditionalScrollbar(t *testing.T) {
 	t.Run("Normal panel scrollbar is always visible if scrollable", func(t *testing.T) {
 		tm.focusedPanel = MainPanel // Focus is NOT on CommitsPanel
 		rendered := tm.renderPanel("Commits", 30, tm.panelHeights[CommitsPanel], CommitsPanel)
-		if !strings.Contains(rendered, scrollThumb) {
+		if !strings.Contains(rendered, scrollThumbChar) {
 			t.Error("Scrollbar thumb should be visible but was not found")
 		}
 	})
