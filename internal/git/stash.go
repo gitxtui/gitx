@@ -84,7 +84,7 @@ func (g *GitCommands) Stash(options StashOptions) (string, error) {
 	} else if options.List {
 		args = []string{"stash", "list"}
 	} else if options.Show {
-		args = []string{"stash", "show"}
+		args = []string{"stash", "show", "--color=always"}
 		if options.StashID != "" {
 			args = append(args, options.StashID)
 		}
@@ -98,6 +98,10 @@ func (g *GitCommands) Stash(options StashOptions) (string, error) {
 	cmd := exec.Command("git", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		// The command fails if there's no stash.
+		if strings.Contains(string(output), "No stash entries found") || strings.Contains(string(output), "No stash found") {
+			return "No stashes found.", nil
+		}
 		return string(output), fmt.Errorf("stash operation failed: %v", err)
 	}
 

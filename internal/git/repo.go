@@ -34,3 +34,13 @@ func (g *GitCommands) GetGitRepoPath() (repoPath string, err error) {
 	repoPath = strings.TrimSpace(string(repoPathBytes))
 	return repoPath, nil
 }
+
+// GetUserName returns the user's name from the git config.
+func (g *GitCommands) GetUserName() (string, error) {
+	cmd := ExecCommand("git", "config", "user.name")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}

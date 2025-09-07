@@ -18,7 +18,7 @@ type Node struct {
 
 // BuildTree parses the output of `git status --porcelain` to construct a file tree.
 func BuildTree(gitStatus string) *Node {
-	root := &Node{name: repoRootNodeName}
+	root := &Node{name: repoRootNodeName, path: "."}
 
 	lines := strings.Split(gitStatus, "\n")
 	if len(lines) == 1 && lines[0] == "" {
@@ -30,30 +30,35 @@ func BuildTree(gitStatus string) *Node {
 			continue
 		}
 		status := line[:2]
-		path := strings.TrimSpace(line[porcelainStatusPrefixLength:])
+		fullPath := strings.TrimSpace(line[porcelainStatusPrefixLength:])
 		isRenamed := false
 
 		if status[0] == 'R' || status[0] == 'C' {
-			parts := strings.Split(path, gitRenameDelimiter)
+			parts := strings.Split(fullPath, gitRenameDelimiter)
 			if len(parts) == 2 {
-				path = parts[1]
+				fullPath = parts[1]
 				isRenamed = true
 			}
 		}
 
-		parts := strings.Split(path, string(filepath.Separator))
+		parts := strings.Split(fullPath, string(filepath.Separator))
 		currentNode := root
 		for i, part := range parts {
 			childNode := currentNode.findChild(part)
 			if childNode == nil {
-				childNode = &Node{name: part}
+				// Construct path for the new node based on its parent
+				nodePath := filepath.Join(currentNode.path, part)
+				if currentNode.path == "." {
+					nodePath = part
+				}
+				childNode = &Node{name: part, path: nodePath}
 				currentNode.children = append(currentNode.children, childNode)
 			}
 			currentNode = childNode
 
-			if i == len(parts)-1 {
+			if i == len(parts)-1 { // Leaf node (file)
 				currentNode.status = status
-				currentNode.path = path
+				currentNode.path = fullPath // Overwrite with the full path from git
 				currentNode.isRenamed = isRenamed
 			}
 		}
@@ -119,6 +124,7 @@ func (n *Node) compact() {
 	for len(n.children) == 1 && len(n.children[0].children) > 0 {
 		child := n.children[0]
 		n.name = filepath.Join(n.name, child.name)
+		n.path = child.path
 		n.children = child.children
 	}
 }
@@ -132,14 +138,14 @@ func (n *Node) renderRecursive(prefix string, theme Theme) []string {
 
 		if len(child.children) > 0 { // It's a directory
 			displayName := dirExpandedIcon + child.name
-			lines = append(lines, fmt.Sprintf("%s\t\t%s", prefix, displayName))
+			lines = append(lines, fmt.Sprintf("%s\t\t%s\t%s", prefix, displayName, child.path))
 			lines = append(lines, child.renderRecursive(newPrefix, theme)...)
 		} else { // It's a file.
 			displayName := child.name
 			if child.isRenamed {
 				displayName = child.path
 			}
-			lines = append(lines, fmt.Sprintf("%s\t%s\t%s", prefix, child.status, displayName))
+			lines = append(lines, fmt.Sprintf("%s\t%s\t%s\t%s", prefix, child.status, displayName, child.path))
 		}
 	}
 	return lines

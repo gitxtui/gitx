@@ -24,6 +24,7 @@ type LogOptions struct {
 	MaxCount int
 	Format   string
 	Color    string
+	Branch   string
 }
 
 // GetCommitLogsGraph fetches the git log with a graph format and returns it as a
@@ -66,6 +67,9 @@ func (g *GitCommands) ShowLog(options LogOptions) (string, error) {
 	}
 	if options.Color != "" {
 		args = append(args, fmt.Sprintf("--color=%s", options.Color))
+	}
+	if options.Branch != "" {
+		args = append(args, options.Branch)
 	}
 
 	cmd := ExecCommand("git", args...)

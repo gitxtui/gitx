@@ -42,7 +42,7 @@ func (g *GitCommands) ShowCommit(commitHash string) (string, error) {
 		commitHash = "HEAD"
 	}
 
-	cmd := exec.Command("git", "show", commitHash)
+	cmd := exec.Command("git", "show", "--color=always", commitHash)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("failed to show commit: %v", err)

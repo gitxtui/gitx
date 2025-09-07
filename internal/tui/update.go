@@ -18,6 +18,11 @@ type panelContentUpdatedMsg struct {
 	content string
 }
 
+// mainContentUpdatedMsg is sent when the content for the main panel has been fetched.
+type mainContentUpdatedMsg struct {
+	content string
+}
+
 // lineClickedMsg is sent when a user clicks on a line in a selectable panel.
 type lineClickedMsg struct {
 	panel     Panel
@@ -35,6 +40,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	oldFocus := m.focusedPanel
 
 	switch msg := msg.(type) {
+	case mainContentUpdatedMsg:
+		m.panels[MainPanel].content = msg.content
+		m.panels[MainPanel].viewport.SetContent(msg.content)
+		return m, nil
+
 	case panelContentUpdatedMsg:
 		var selectedPath string
 		// If the FilesPanel is being updated, try to find the path of the
@@ -42,8 +52,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.panel == FilesPanel && m.panels[FilesPanel].cursor < len(m.panels[FilesPanel].lines) {
 			line := m.panels[FilesPanel].lines[m.panels[FilesPanel].cursor]
 			parts := strings.Split(line, "\t")
-			if len(parts) == 3 {
-				selectedPath = parts[2] // The path is the third element.
+			if len(parts) == 4 {
+				selectedPath = parts[3]
 			}
 		}
 		oldCursor := m.panels[msg.panel].cursor
@@ -59,7 +69,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if selectedPath != "" {
 				for i, line := range renderedTree {
 					parts := strings.Split(line, "\t")
-					if len(parts) == 3 && parts[2] == selectedPath {
+					if len(parts) == 4 && parts[3] == selectedPath {
 						newCursorPos = i
 						break
 					}
@@ -81,7 +91,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.panels[msg.panel].cursor = 0
 			}
 		}
-		return m, nil
+		return m, m.updateMainPanel()
 
 	case fileWatcherMsg:
 		// When the repository changes, trigger a content refresh for all panels.
@@ -106,7 +116,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				p.viewport.SetYOffset(p.cursor - p.viewport.Height + 1)
 			}
 		}
-		return m, nil
+		m.activeSourcePanel = msg.panel
+		m.panels[MainPanel].viewport.GotoTop()
+		return m, m.updateMainPanel()
 
 	case tea.WindowSizeMsg:
 		m, cmd = m.handleWindowSizeMsg(msg)
@@ -122,9 +134,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.focusedPanel != oldFocus {
-		// When focus changes, reset scroll for certain panels and recalculate layout.
-		if m.focusedPanel == StashPanel || m.focusedPanel == SecondaryPanel {
-			m.panels[m.focusedPanel].viewport.GotoTop()
+		// When focus changes, update the active source panel if necessary
+		if m.focusedPanel != MainPanel && m.focusedPanel != SecondaryPanel {
+			m.activeSourcePanel = m.focusedPanel
+			m.panels[MainPanel].viewport.GotoTop() // Reset scroll on focus change
+			cmd = m.updateMainPanel()
+			cmds = append(cmds, cmd)
 		}
 		m = m.recalculateLayout()
 	}
@@ -193,14 +208,90 @@ func (m Model) fetchPanelContent(panel Panel) tea.Cmd {
 					content = strings.TrimSpace(builder.String())
 				}
 			}
-		case MainPanel, SecondaryPanel:
-			content = initialContentLoading
 		}
 
 		if err != nil {
 			content = "Error: " + err.Error()
 		}
 		return panelContentUpdatedMsg{panel: panel, content: content}
+	}
+}
+
+// updateMainPanel returns a command that fetches the content for the main panel
+// based on the currently active source panel.
+func (m *Model) updateMainPanel() tea.Cmd {
+	return func() tea.Msg {
+		var content string
+		var err error
+		switch m.activeSourcePanel {
+		case StatusPanel:
+			userName, _ := m.git.GetUserName()
+			content = fmt.Sprintf("Hello, %s!\n\nWelcome to gitx.\n\nHere is a great tutorial to learn about git: https://g.co/kgs/Qd3w3S\n", userName)
+		case FilesPanel:
+			if m.panels[FilesPanel].cursor < len(m.panels[FilesPanel].lines) {
+				line := m.panels[FilesPanel].lines[m.panels[FilesPanel].cursor]
+				parts := strings.Split(line, "\t")
+
+				if len(parts) == 4 {
+					status := parts[1]
+					path := parts[3] // Always use the full path from the 4th column
+
+					if path != "" {
+						if status == "" { // It's a directory
+							content, err = m.git.ShowDiff(git.DiffOptions{Color: true, Commit1: path})
+						} else { // It's a file
+							stagedChanges := status[0] != ' ' && status[0] != '?'
+							unstagedChanges := status[1] != ' '
+
+							if stagedChanges {
+								content, err = m.git.ShowDiff(git.DiffOptions{Color: true, Cached: true, Commit1: path})
+							} else if unstagedChanges {
+								content, err = m.git.ShowDiff(git.DiffOptions{Color: true, Commit1: path})
+							} else if status == "??" {
+								content = "Untracked file: Stage to see content as a diff."
+							}
+						}
+					}
+				}
+			}
+		case BranchesPanel:
+			if m.panels[BranchesPanel].cursor < len(m.panels[BranchesPanel].lines) {
+				line := m.panels[BranchesPanel].lines[m.panels[BranchesPanel].cursor]
+				parts := strings.Split(line, "\t")
+				if len(parts) > 1 {
+					branchName := strings.TrimSpace(strings.TrimPrefix(parts[1], "(*) → "))
+					content, err = m.git.ShowLog(git.LogOptions{Graph: true, Color: "always", Branch: branchName})
+				}
+			}
+		case CommitsPanel:
+			if m.panels[CommitsPanel].cursor < len(m.panels[CommitsPanel].lines) {
+				line := m.panels[CommitsPanel].lines[m.panels[CommitsPanel].cursor]
+				parts := strings.Split(line, "\t")
+				if len(parts) >= 2 {
+					sha := parts[1]
+					content, err = m.git.ShowCommit(sha)
+				}
+			}
+		case StashPanel:
+			if len(m.panels[StashPanel].lines) == 1 && m.panels[StashPanel].lines[0] == "No stashed changes." {
+				content = "No stashed changes."
+			} else if m.panels[StashPanel].cursor < len(m.panels[StashPanel].lines) {
+				line := m.panels[StashPanel].lines[m.panels[StashPanel].cursor]
+				parts := strings.SplitN(line, "\t", 2)
+				if len(parts) > 0 {
+					stashID := parts[0]
+					content, err = m.git.Stash(git.StashOptions{Show: true, StashID: stashID})
+				}
+			}
+		}
+
+		if err != nil {
+			content = "Error: " + err.Error()
+		}
+		if content == "" {
+			content = "Select an item to see details."
+		}
+		return mainContentUpdatedMsg{content: content}
 	}
 }
 
@@ -317,6 +408,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch m.focusedPanel {
 	case FilesPanel, BranchesPanel, CommitsPanel, StashPanel:
 		p := &m.panels[m.focusedPanel]
+		itemSelected := false
 		switch {
 		case key.Matches(msg, keys.Up):
 			if p.cursor > 0 {
@@ -324,16 +416,20 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 				if p.cursor < p.viewport.YOffset {
 					p.viewport.SetYOffset(p.cursor)
 				}
+				itemSelected = true
 			}
-			return m, nil // We handled the key.
 		case key.Matches(msg, keys.Down):
 			if p.cursor < len(p.lines)-1 {
 				p.cursor++
 				if p.cursor >= p.viewport.YOffset+p.viewport.Height {
 					p.viewport.SetYOffset(p.cursor - p.viewport.Height + 1)
 				}
+				itemSelected = true
 			}
-			return m, nil // We handled the key.
+		}
+		if itemSelected {
+			m.panels[MainPanel].viewport.GotoTop()
+			return m, m.updateMainPanel()
 		}
 	}
 

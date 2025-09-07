@@ -11,18 +11,27 @@ type DiffOptions struct {
 	Commit2 string
 	Cached  bool
 	Stat    bool
+	Color   bool
 }
 
 // ShowDiff shows changes between commits, commit and working tree, etc.
 func (g *GitCommands) ShowDiff(options DiffOptions) (string, error) {
 	args := []string{"diff"}
 
+	if options.Color {
+		args = append(args, "--color=always")
+	}
 	if options.Cached {
 		args = append(args, "--cached")
 	}
 	if options.Stat {
 		args = append(args, "--stat")
 	}
+
+	if options.Commit1 != "" || options.Commit2 != "" {
+		args = append(args, "--")
+	}
+
 	if options.Commit1 != "" {
 		args = append(args, options.Commit1)
 	}

@@ -10,21 +10,22 @@ import (
 
 // Model represents the state of the TUI.
 type Model struct {
-	width        int
-	height       int
-	panels       []panel
-	panelHeights []int
-	focusedPanel Panel
-	theme        Theme
-	themeNames   []string
-	themeIndex   int
-	help         help.Model
-	helpViewport viewport.Model
-	helpContent  string
-	showHelp     bool
-	git          *git.GitCommands
-	repoName     string
-	branchName   string
+	width             int
+	height            int
+	panels            []panel
+	panelHeights      []int
+	focusedPanel      Panel
+	activeSourcePanel Panel
+	theme             Theme
+	themeNames        []string
+	themeIndex        int
+	help              help.Model
+	helpViewport      viewport.Model
+	helpContent       string
+	showHelp          bool
+	git               *git.GitCommands
+	repoName          string
+	branchName        string
 }
 
 // initialModel creates the initial state of the application.
@@ -46,17 +47,18 @@ func initialModel() Model {
 	}
 
 	return Model{
-		theme:        Themes[themeNames[0]],
-		themeNames:   themeNames,
-		themeIndex:   0,
-		focusedPanel: StatusPanel,
-		help:         help.New(),
-		helpViewport: viewport.New(0, 0),
-		showHelp:     false,
-		git:          gc,
-		repoName:     repoName,
-		branchName:   branchName,
-		panels:       panels,
+		theme:             Themes[themeNames[0]],
+		themeNames:        themeNames,
+		themeIndex:        0,
+		focusedPanel:      StatusPanel,
+		activeSourcePanel: StatusPanel,
+		help:              help.New(),
+		helpViewport:      viewport.New(0, 0),
+		showHelp:          false,
+		git:               gc,
+		repoName:          repoName,
+		branchName:        branchName,
+		panels:            panels,
 	}
 }
 
@@ -69,8 +71,8 @@ func (m Model) Init() tea.Cmd {
 		m.fetchPanelContent(BranchesPanel),
 		m.fetchPanelContent(CommitsPanel),
 		m.fetchPanelContent(StashPanel),
-		m.fetchPanelContent(MainPanel),
 		m.fetchPanelContent(SecondaryPanel),
+		m.updateMainPanel(),
 	)
 }
 
