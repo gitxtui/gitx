@@ -56,6 +56,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				selectedPath = parts[3]
 			}
 		}
+
 		oldCursor := m.panels[msg.panel].cursor
 
 		if msg.panel == FilesPanel {
@@ -134,13 +135,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.focusedPanel != oldFocus {
-		// When focus changes, update the active source panel if necessary
+		// When focus changes, reset scroll for the Stash and Secondary panels
+		if m.focusedPanel == StashPanel || m.focusedPanel == SecondaryPanel {
+			m.panels[m.focusedPanel].viewport.GotoTop()
+		}
+
+		// Update the active source panel and main panel content if the new focus is a source panel
 		if m.focusedPanel != MainPanel && m.focusedPanel != SecondaryPanel {
 			m.activeSourcePanel = m.focusedPanel
-			m.panels[MainPanel].viewport.GotoTop() // Reset scroll on focus change
+			m.panels[MainPanel].viewport.GotoTop() // Reset main panel scroll on source change
 			cmd = m.updateMainPanel()
 			cmds = append(cmds, cmd)
 		}
+
 		m = m.recalculateLayout()
 	}
 
@@ -208,6 +215,13 @@ func (m Model) fetchPanelContent(panel Panel) tea.Cmd {
 					content = strings.TrimSpace(builder.String())
 				}
 			}
+		case SecondaryPanel:
+			url := m.theme.Hyperlink.Render(githubMainPage)
+			content = strings.Join([]string{
+				"\t--- Feature in development! ---",
+				"\n\t* This panel will contain all the command logs and history for of TUI app.",
+				fmt.Sprintf("\t* visit for more details: %s.", url),
+			}, "\n")
 		}
 
 		if err != nil {
@@ -226,7 +240,10 @@ func (m *Model) updateMainPanel() tea.Cmd {
 		switch m.activeSourcePanel {
 		case StatusPanel:
 			userName, _ := m.git.GetUserName()
-			content = fmt.Sprintf("Hello, %s!\n\nWelcome to gitx.\n\nHere is a great tutorial to learn about git: https://g.co/kgs/Qd3w3S\n", userName)
+			url := m.theme.Hyperlink.Render(docsPage)
+			msgHeading := m.theme.WelcomeHeading.Render(asciiArt)
+			msgBody := fmt.Sprintf(welcomeMsg, m.theme.UserName.Render(userName), url)
+			content = fmt.Sprintf(msgHeading, m.theme.WelcomeMsg.Render(msgBody))
 		case FilesPanel:
 			if m.panels[FilesPanel].cursor < len(m.panels[FilesPanel].lines) {
 				line := m.panels[FilesPanel].lines[m.panels[FilesPanel].cursor]
@@ -238,7 +255,7 @@ func (m *Model) updateMainPanel() tea.Cmd {
 
 					if path != "" {
 						if status == "" { // It's a directory
-							content, err = m.git.ShowDiff(git.DiffOptions{Color: true, Commit1: path})
+							content, err = m.git.ShowDiff(git.DiffOptions{Color: true, Commit1: "HEAD", Commit2: path})
 						} else { // It's a file
 							stagedChanges := status[0] != ' ' && status[0] != '?'
 							unstagedChanges := status[1] != ' '

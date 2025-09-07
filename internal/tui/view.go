@@ -1,8 +1,8 @@
-// Package tui contains the logic for the terminal user interface of the application.
 package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -10,6 +10,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	zone "github.com/lrstanley/bubblezone"
 )
+
+// ansiRegex is used to strip ANSI escape codes from strings.
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// stripAnsi removes ANSI escape codes from a string.
+func stripAnsi(str string) string {
+	return ansiRegex.ReplaceAllString(str, "")
+}
 
 // View is the main render function for the application.
 func (m Model) View() string {
@@ -89,7 +97,21 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 			var finalLine string
 
 			if i == p.cursor && isFocused {
-				cleanLine := strings.ReplaceAll(line, "\t", "  ")
+				var cleanLine string
+				// For the selected line, strip any existing ANSI codes before applying selection style.
+				if panel == FilesPanel {
+					// For files panel, don't show the hidden path in the selection.
+					parts := strings.Split(line, "\t")
+					if len(parts) >= 3 {
+						cleanLine = fmt.Sprintf("%s %s %s", parts[0], parts[1], parts[2])
+					} else {
+						cleanLine = line
+					}
+				} else {
+					cleanLine = stripAnsi(line)
+				}
+
+				cleanLine = strings.ReplaceAll(cleanLine, "\t", "  ") // Also replace tabs
 				selectionStyle := m.theme.SelectedLine.Width(contentWidth)
 				finalLine = selectionStyle.Render(cleanLine)
 			} else {
@@ -259,23 +281,22 @@ func styleUnselectedLine(line string, panel Panel, theme Theme) string {
 	case CommitsPanel:
 		parts := strings.SplitN(line, "\t", 4)
 		if len(parts) != 4 {
-			return styleGraph(line, theme) // Render graph-only lines.
+			// This is a graph-only line, already colored by git.
+			// We just replace the placeholder node with a styled one.
+			return strings.ReplaceAll(line, "○", theme.GraphNode.Render("○"))
 		}
 		graph, sha, author, subject := parts[0], parts[1], parts[2], parts[3]
-		styledGraph := styleGraph(graph, theme)
+
+		// The graph string is already colored by git, but we style the node.
+		styledGraph := strings.ReplaceAll(graph, "○", theme.GraphNode.Render("○"))
+
+		// Apply our theme's styles to the other parts.
 		styledSHA := theme.CommitSHA.Render(sha)
-
 		styledAuthor := theme.CommitAuthor.Render(author)
-
-		commitNodeIndex := strings.Index(graph, graphNodeChar)
-		if commitNodeIndex != -1 {
-			authorColorStyle := theme.GraphColors[commitNodeIndex%len(theme.GraphColors)]
-			styledAuthor = authorColorStyle.Render(author)
-		}
-
 		if strings.HasPrefix(strings.ToLower(subject), "merge") {
 			styledAuthor = theme.CommitMerge.Render(author)
 		}
+
 		final := lipgloss.JoinHorizontal(lipgloss.Left, styledSHA, " ", styledAuthor, " ", subject)
 		return fmt.Sprintf("%s %s", styledGraph, final)
 	case StashPanel:
@@ -315,21 +336,4 @@ func styleChar(char byte, style lipgloss.Style) string {
 		return " "
 	}
 	return style.Render(string(char))
-}
-
-// styleGraph applies colors to the git log graph characters.
-func styleGraph(graph string, theme Theme) string {
-	var styled strings.Builder
-	for i, char := range graph {
-		switch char {
-		case '|', '\\', '/':
-			color := theme.GraphColors[i%len(theme.GraphColors)]
-			styled.WriteString(color.Render(string(char)))
-		case '○':
-			styled.WriteString(theme.GraphNode.Render("○"))
-		default:
-			styled.WriteString(string(char))
-		}
-	}
-	return styled.String()
 }

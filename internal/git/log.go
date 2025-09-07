@@ -35,7 +35,7 @@ func (g *GitCommands) GetCommitLogsGraph() ([]CommitLog, error) {
 	options := LogOptions{
 		Graph:  true,
 		Format: format,
-		Color:  "never",
+		Color:  "always",
 		All:    true,
 	}
 

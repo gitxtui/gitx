@@ -68,3 +68,38 @@ const (
 	treePrefix        = "    "
 	treePrefixLast    = "   "
 )
+
+// --- Hyperlink URLs ---
+const (
+	githubMainPage = "https://github.com/gitxtui/gitx"
+	docsPage       = "https://gitxtui.github.io/docs/"
+)
+
+const (
+	asciiArt = `
+			 WELCOME TO
+
+	 ██████╗ ██╗████████╗██╗  ██╗
+	██╔════╝ ██║╚══██╔══╝╚██╗██╔╝
+	██║  ███╗██║   ██║    ╚███╔╝ 
+	██║   ██║██║   ██║    ██╔██╗ 
+	╚██████╔╝██║   ██║   ██╔╝ ██╗
+	 ╚═════╝ ╚═╝   ╚═╝   ╚═╝  ╚═╝
+
+	 %s
+`
+	welcomeMsg = `
+	○ User: %s
+	Welcome to GITx, your terminal-based Git helper, inspired by lazygit.
+	Here is a great tutorial to learn about git: %s
+`
+
+	// asciiArt alternative, named "_" to remove unused warnings
+	_ = `
+	 ▗▄▄▖▗▄▄▄▖▗▄▄▄▖
+	▐▌     █    █  ▄   ▄
+	▐▌▝▜▌  █    █   ▀▄▀
+	▝▚▄▞▘▗▄█▄▖  █  ▄▀ ▀▄
+                   
+`
+)

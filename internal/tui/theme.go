@@ -98,6 +98,10 @@ type Theme struct {
 	HelpButton     lipgloss.Style
 	ScrollbarThumb lipgloss.Style
 	SelectedLine   lipgloss.Style
+	Hyperlink      lipgloss.Style
+	WelcomeHeading lipgloss.Style
+	WelcomeMsg     lipgloss.Style
+	UserName       lipgloss.Style
 	GitStaged      lipgloss.Style
 	GitUnstaged    lipgloss.Style
 	GitUntracked   lipgloss.Style
@@ -155,6 +159,10 @@ func NewThemeFromPalette(p Palette) Theme {
 		HelpButton:     lipgloss.NewStyle().Foreground(lipgloss.Color(p.Bg)).Background(lipgloss.Color(p.Green)).Margin(0, 1),
 		ScrollbarThumb: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightGreen)),
 		SelectedLine:   lipgloss.NewStyle().Background(lipgloss.Color(p.DarkBlue)).Foreground(lipgloss.Color(p.BrightWhite)),
+		Hyperlink:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightBlue)).Underline(true),
+		WelcomeHeading: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightCyan)),
+		WelcomeMsg:     lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightGreen)),
+		UserName:       lipgloss.NewStyle().Foreground(lipgloss.Color(p.Magenta)),
 		GitStaged:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.Green)),
 		GitUnstaged:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Red)),
 		GitUntracked:   lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightBlack)),
