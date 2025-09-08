@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' # This workflow runs on tags like v1.0, v1.2.3
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # This is needed for GoReleaser to determine the changelog.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          # The Go version from your go.mod file.
+          go-version: '1.24'
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          # We use the GoReleaser distribution itself.
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          # This token is provided by GitHub Actions to allow creating releases.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

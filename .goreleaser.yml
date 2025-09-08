@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# This is the configuration for GoReleaser
+project_name: gitx
+
+builds:
+  - # Each build is an object with its own configuration.
+    id: gitx
+    # The main package for your application.
+    main: ./cmd/gitx/
+    # The name of the binary file.
+    binary: gitx
+    env:
+      # CGO_ENABLED=0 is used to build a statically linked binary.
+      - CGO_ENABLED=0
+    # Platforms to build for.
+    goos:
+      - linux
+      - darwin # macOS
+    goarch:
+      - amd64 # For Intel/AMD processors
+      - arm64 # For Apple Silicon and other ARM processors
+
+# Configuration for the archives (e.g., .tar.gz files).
+archives:
+  - format: tar.gz
+    # This template creates archives like "gitx_1.0.0_linux_amd64.tar.gz"
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    # Files to include in the archive along with the binary.
+    files:
+      - LICENSE
+      - README.md
