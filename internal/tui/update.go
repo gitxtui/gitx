@@ -163,7 +163,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			key.Matches(msg, keys.FocusFour), key.Matches(msg, keys.FocusFive),
 			key.Matches(msg, keys.FocusSix):
 			m.handleFocusKeys(msg)
-			return m, nil
 		}
 
 		cmd = m.handlePanelKeys(msg)
