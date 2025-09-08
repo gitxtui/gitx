@@ -3,9 +3,19 @@ package tui
 import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gitxtui/gitx/internal/git"
+)
+
+// appMode defines the different operational modes of the TUI.
+type appMode int
+
+const (
+	modeNormal appMode = iota
+	modeInput
+	modeConfirm
 )
 
 // Model represents the state of the TUI.
@@ -26,6 +36,13 @@ type Model struct {
 	git               *git.GitCommands
 	repoName          string
 	branchName        string
+	// New fields for pop-ups
+	mode            appMode
+	promptTitle     string
+	confirmMessage  string
+	textInput       textinput.Model
+	inputCallback   func(string) tea.Cmd
+	confirmCallback func(bool) tea.Cmd
 }
 
 // initialModel creates the initial state of the application.
@@ -35,7 +52,6 @@ func initialModel() Model {
 	repoName, branchName, _ := gc.GetRepoInfo()
 	initialContent := initialContentLoading
 
-	// Create a slice to hold all UI panels.
 	panels := make([]panel, totalPanels)
 	for i := range panels {
 		vp := viewport.New(0, 0)
@@ -45,6 +61,11 @@ func initialModel() Model {
 			content:  initialContent,
 		}
 	}
+
+	ti := textinput.New()
+	ti.Focus()
+	ti.CharLimit = 256
+	ti.Width = 50
 
 	return Model{
 		theme:             Themes[themeNames[0]],
@@ -59,6 +80,8 @@ func initialModel() Model {
 		repoName:          repoName,
 		branchName:        branchName,
 		panels:            panels,
+		mode:              modeNormal,
+		textInput:         ti,
 	}
 }
 

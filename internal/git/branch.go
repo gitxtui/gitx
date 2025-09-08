@@ -151,3 +151,18 @@ func (g *GitCommands) Switch(branchName string) (string, error) {
 
 	return string(output), nil
 }
+
+// RenameBranch renames a branch.
+func (g *GitCommands) RenameBranch(oldName, newName string) (string, error) {
+	if oldName == "" || newName == "" {
+		return "", fmt.Errorf("both old and new branch names are required")
+	}
+
+	cmd := ExecCommand("git", "branch", "-m", oldName, newName)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("failed to rename branch: %v", err)
+	}
+
+	return string(output), nil
+}

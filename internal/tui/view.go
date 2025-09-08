@@ -21,10 +21,56 @@ func stripAnsi(str string) string {
 
 // View is the main render function for the application.
 func (m Model) View() string {
+	var finalView string
 	if m.showHelp {
-		return m.renderHelpView()
+		finalView = m.renderHelpView()
+	} else {
+		finalView = m.renderMainView()
 	}
-	return m.renderMainView()
+
+	// If not in normal mode, render a pop-up on top.
+	if m.mode != modeNormal {
+		var popup string
+		if m.mode == modeInput {
+			popup = m.renderInputPopup()
+		} else { // modeConfirm
+			popup = m.renderConfirmPopup()
+		}
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, popup)
+	}
+
+	return finalView
+}
+
+// renderInputPopup creates the view for the text input pop-up.
+func (m Model) renderInputPopup() string {
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		m.theme.ActiveTitle.Render(" "+m.promptTitle+" "),
+		m.textInput.View(),
+		m.theme.InactiveTitle.Render(" (Enter to confirm, Esc to cancel) "),
+	)
+
+	return lipgloss.NewStyle().
+		Padding(1, 2).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(m.theme.ActiveBorder.Style.GetForeground()).
+		Render(content)
+}
+
+// renderConfirmPopup creates the view for the confirmation pop-up.
+func (m Model) renderConfirmPopup() string {
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		m.confirmMessage,
+		m.theme.InactiveTitle.Render(" (y/n) "),
+	)
+
+	return lipgloss.NewStyle().
+		Padding(1, 2).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(m.theme.ActiveBorder.Style.GetForeground()).
+		Render(content)
 }
 
 // renderMainView renders the primary user interface with all panels.

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -32,14 +33,31 @@ type lineClickedMsg struct {
 // fileWatcherMsg is sent by the file watcher when the repository state changes.
 type fileWatcherMsg struct{}
 
+// errMsg is used to propagate errors back to the update loop.
+type errMsg struct{ err error }
+
+func (e errMsg) Error() string { return e.err.Error() }
+
 // Update is the main message handler for the TUI. It processes user input,
 // window events, and application-specific messages.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch m.mode {
+	case modeInput:
+		return m.updateInput(msg)
+	case modeConfirm:
+		return m.updateConfirm(msg)
+	}
+
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 	oldFocus := m.focusedPanel
 
 	switch msg := msg.(type) {
+	case errMsg:
+		// You can improve this to show errors in the UI
+		log.Printf("error: %v", msg)
+		return m, nil
+
 	case mainContentUpdatedMsg:
 		m.panels[MainPanel].content = msg.content
 		m.panels[MainPanel].viewport.SetContent(msg.content)
@@ -130,8 +148,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 
 	case tea.KeyMsg:
-		m, cmd = m.handleKeyMsg(msg)
-		cmds = append(cmds, cmd)
+		switch {
+		case key.Matches(msg, keys.Quit):
+			return m, tea.Quit
+		case key.Matches(msg, keys.ToggleHelp):
+			m.toggleHelp()
+			return m, nil
+		case key.Matches(msg, keys.SwitchTheme):
+			m.nextTheme()
+			return m, nil
+		case key.Matches(msg, keys.FocusNext), key.Matches(msg, keys.FocusPrev),
+			key.Matches(msg, keys.FocusZero), key.Matches(msg, keys.FocusOne),
+			key.Matches(msg, keys.FocusTwo), key.Matches(msg, keys.FocusThree),
+			key.Matches(msg, keys.FocusFour), key.Matches(msg, keys.FocusFive),
+			key.Matches(msg, keys.FocusSix):
+			m.handleFocusKeys(msg)
+			return m, nil
+		}
+
+		cmd = m.handlePanelKeys(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+			return m, tea.Batch(cmds...)
+		}
 	}
 
 	if m.focusedPanel != oldFocus {
@@ -151,7 +190,52 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.recalculateLayout()
 	}
 
+	// The original viewport update logic for scrolling
+	m.panels[m.focusedPanel].viewport, cmd = m.panels[m.focusedPanel].viewport.Update(msg)
+	cmds = append(cmds, cmd)
+
 	return m, tea.Batch(cmds...)
+}
+
+// updateInput handles updates when in text input mode.
+func (m Model) updateInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEnter:
+			val := m.textInput.Value()
+			cmd = m.inputCallback(val)
+			m.mode = modeNormal
+			m.textInput.Reset()
+			return m, cmd
+		case tea.KeyEsc:
+			m.mode = modeNormal
+			m.textInput.Reset()
+			return m, nil
+		}
+	}
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
+}
+
+// updateConfirm handles updates when in confirmation mode.
+func (m Model) updateConfirm(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch strings.ToLower(msg.String()) {
+		case "y":
+			cmd = m.confirmCallback(true)
+			m.mode = modeNormal
+			return m, cmd
+		case "n", "esc":
+			cmd = m.confirmCallback(false)
+			m.mode = modeNormal
+			return m, cmd
+		}
+	}
+	return m, nil
 }
 
 // fetchPanelContent returns a command that fetches the content for a specific panel.
@@ -384,77 +468,244 @@ func (m Model) handleMouseMsg(msg tea.MouseMsg) (Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// handleKeyMsg handles all keyboard events.
-func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
-	var cmd tea.Cmd
-	var cmds []tea.Cmd
-
-	if m.showHelp {
-		m.helpViewport, cmd = m.helpViewport.Update(msg)
-		cmds = append(cmds, cmd)
-		switch {
-		case key.Matches(msg, keys.Quit), key.Matches(msg, keys.ToggleHelp), key.Matches(msg, keys.Escape):
-			m.showHelp = false
-		case key.Matches(msg, keys.SwitchTheme):
-			m.nextTheme()
-			m.styleHelpViewContent()
-		}
-		return m, tea.Batch(cmds...)
-	}
-
-	// Global keybindings that take precedence over panel-specific logic.
-	switch {
-	case key.Matches(msg, keys.Quit):
-		return m, tea.Quit
-	case key.Matches(msg, keys.ToggleHelp):
-		m.toggleHelp()
-		return m, nil
-	case key.Matches(msg, keys.SwitchTheme):
-		m.nextTheme()
-		return m, nil
-	case key.Matches(msg, keys.FocusNext), key.Matches(msg, keys.FocusPrev),
-		key.Matches(msg, keys.FocusZero), key.Matches(msg, keys.FocusOne),
-		key.Matches(msg, keys.FocusTwo), key.Matches(msg, keys.FocusThree),
-		key.Matches(msg, keys.FocusFour), key.Matches(msg, keys.FocusFive),
-		key.Matches(msg, keys.FocusSix):
-		m.handleFocusKeys(msg)
-		return m, nil
-	}
-
-	// Panel-specific key handling for cursor movement.
+// handlePanelKeys handles keybindings that are specific to the focused panel.
+func (m *Model) handlePanelKeys(msg tea.KeyMsg) tea.Cmd {
 	switch m.focusedPanel {
-	case FilesPanel, BranchesPanel, CommitsPanel, StashPanel:
-		p := &m.panels[m.focusedPanel]
-		itemSelected := false
-		switch {
-		case key.Matches(msg, keys.Up):
-			if p.cursor > 0 {
-				p.cursor--
-				if p.cursor < p.viewport.YOffset {
-					p.viewport.SetYOffset(p.cursor)
-				}
-				itemSelected = true
+	case FilesPanel:
+		return m.handleFilesPanelKeys(msg)
+	case BranchesPanel:
+		return m.handleBranchesPanelKeys(msg)
+	case CommitsPanel:
+		return m.handleCommitsPanelKeys(msg)
+	case StashPanel:
+		return m.handleStashPanelKeys(msg)
+	}
+	return nil
+}
+
+// handleCursorMovement is a helper to handle up/down cursor movement in selectable panels.
+// It returns true if the key was handled.
+func (m *Model) handleCursorMovement(msg tea.KeyMsg) (bool, tea.Cmd) {
+	p := &m.panels[m.focusedPanel]
+	itemSelected := false
+	switch {
+	case key.Matches(msg, keys.Up):
+		if p.cursor > 0 {
+			p.cursor--
+			if p.cursor < p.viewport.YOffset {
+				p.viewport.SetYOffset(p.cursor)
 			}
-		case key.Matches(msg, keys.Down):
-			if p.cursor < len(p.lines)-1 {
-				p.cursor++
-				if p.cursor >= p.viewport.YOffset+p.viewport.Height {
-					p.viewport.SetYOffset(p.cursor - p.viewport.Height + 1)
-				}
-				itemSelected = true
-			}
+			itemSelected = true
 		}
-		if itemSelected {
-			m.panels[MainPanel].viewport.GotoTop()
-			return m, m.updateMainPanel()
+	case key.Matches(msg, keys.Down):
+		if p.cursor < len(p.lines)-1 {
+			p.cursor++
+			if p.cursor >= p.viewport.YOffset+p.viewport.Height {
+				p.viewport.SetYOffset(p.cursor - p.viewport.Height + 1)
+			}
+			itemSelected = true
 		}
 	}
+	if itemSelected {
+		m.panels[MainPanel].viewport.GotoTop()
+		return true, m.updateMainPanel()
+	}
+	return false, nil
+}
 
-	// Pass all other key messages to the focused panel's viewport for default scrolling.
-	m.panels[m.focusedPanel].viewport, cmd = m.panels[m.focusedPanel].viewport.Update(msg)
-	cmds = append(cmds, cmd)
+func (m *Model) handleFilesPanelKeys(msg tea.KeyMsg) tea.Cmd {
+	if handled, cmd := m.handleCursorMovement(msg); handled {
+		return cmd
+	}
 
-	return m, tea.Batch(cmds...)
+	if m.panels[FilesPanel].cursor >= len(m.panels[FilesPanel].lines) {
+		return nil
+	}
+	line := m.panels[FilesPanel].lines[m.panels[FilesPanel].cursor]
+	parts := strings.Split(line, "\t")
+	if len(parts) < 4 {
+		return nil
+	}
+	status := parts[1]
+	filePath := parts[3]
+
+	switch {
+	case key.Matches(msg, keys.Commit):
+		m.mode = modeInput
+		m.promptTitle = "Commit Message"
+		m.textInput.Placeholder = "Enter commit message"
+		m.textInput.Focus()
+		m.inputCallback = func(message string) tea.Cmd {
+			if message == "" {
+				// Don't commit with an empty message
+				return nil
+			}
+			return func() tea.Msg {
+				_, err := m.git.Commit(git.CommitOptions{Message: message})
+				if err != nil {
+					return errMsg{err}
+				}
+				return fileWatcherMsg{}
+			}
+		}
+		return nil
+	case key.Matches(msg, keys.StageItem):
+		// If the item is unstaged, stage it, and vice-versa.
+		isStaged := len(status) > 0 && status[0] != ' ' && status[0] != '?'
+		return func() tea.Msg {
+			var err error
+			if isStaged {
+				_, err = m.git.ResetFiles([]string{filePath})
+			} else {
+				_, err = m.git.AddFiles([]string{filePath})
+			}
+			if err != nil {
+				return errMsg{err}
+			}
+			return fileWatcherMsg{}
+		}
+	case key.Matches(msg, keys.StageAll):
+		return func() tea.Msg {
+			_, err := m.git.AddFiles([]string{"."})
+			if err != nil {
+				return errMsg{err}
+			}
+			return fileWatcherMsg{}
+		}
+	case key.Matches(msg, keys.Reset):
+		return func() tea.Msg {
+			_, err := m.git.ResetFiles([]string{filePath})
+			if err != nil {
+				return errMsg{err}
+			}
+			return fileWatcherMsg{}
+		}
+	case key.Matches(msg, keys.Discard):
+		return func() tea.Msg {
+			_, err := m.git.Restore(git.RestoreOptions{Paths: []string{filePath}, WorkingDir: true})
+			if err != nil {
+				return errMsg{err}
+			}
+			return fileWatcherMsg{}
+		}
+	}
+	return nil
+}
+
+func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
+	if handled, cmd := m.handleCursorMovement(msg); handled {
+		return cmd
+	}
+
+	if m.panels[BranchesPanel].cursor >= len(m.panels[BranchesPanel].lines) {
+		return nil
+	}
+	line := m.panels[BranchesPanel].lines[m.panels[BranchesPanel].cursor]
+	parts := strings.Split(line, "\t")
+	if len(parts) < 2 {
+		return nil
+	}
+	branchName := strings.TrimSpace(strings.TrimPrefix(parts[1], "(*) → "))
+
+	switch {
+	case key.Matches(msg, keys.Checkout):
+		return func() tea.Msg {
+			_, err := m.git.Checkout(branchName)
+			if err != nil {
+				return errMsg{err}
+			}
+			return fileWatcherMsg{}
+		}
+	case key.Matches(msg, keys.DeleteBranch):
+		m.mode = modeConfirm
+		m.confirmMessage = fmt.Sprintf("Are you sure you want to delete branch '%s'?", branchName)
+		m.confirmCallback = func(confirmed bool) tea.Cmd {
+			if !confirmed {
+				return nil
+			}
+			return func() tea.Msg {
+				_, err := m.git.ManageBranch(git.BranchOptions{Delete: true, Name: branchName})
+				if err != nil {
+					return errMsg{err}
+				}
+				return fileWatcherMsg{}
+			}
+		}
+		return nil
+	}
+	return nil
+}
+
+func (m *Model) handleCommitsPanelKeys(msg tea.KeyMsg) tea.Cmd {
+	if handled, cmd := m.handleCursorMovement(msg); handled {
+		return cmd
+	}
+
+	if m.panels[CommitsPanel].cursor >= len(m.panels[CommitsPanel].lines) {
+		return nil
+	}
+	line := m.panels[CommitsPanel].lines[m.panels[CommitsPanel].cursor]
+	parts := strings.Split(line, "\t")
+	if len(parts) < 2 {
+		return nil
+	}
+	sha := parts[1]
+
+	switch {
+	case key.Matches(msg, keys.Revert):
+		return func() tea.Msg {
+			_, err := m.git.Revert(sha)
+			if err != nil {
+				return errMsg{err}
+			}
+			return fileWatcherMsg{}
+		}
+	}
+	return nil
+}
+
+func (m *Model) handleStashPanelKeys(msg tea.KeyMsg) tea.Cmd {
+	if handled, cmd := m.handleCursorMovement(msg); handled {
+		return cmd
+	}
+
+	if m.panels[StashPanel].cursor >= len(m.panels[StashPanel].lines) {
+		return nil
+	}
+	line := m.panels[StashPanel].lines[m.panels[StashPanel].cursor]
+	parts := strings.SplitN(line, "\t", 2)
+	if len(parts) < 1 {
+		return nil
+	}
+	stashID := parts[0]
+
+	switch {
+	case key.Matches(msg, keys.StashApply):
+		return func() tea.Msg {
+			_, err := m.git.Stash(git.StashOptions{Apply: true, StashID: stashID})
+			if err != nil {
+				return errMsg{err}
+			}
+			return fileWatcherMsg{}
+		}
+	case key.Matches(msg, keys.StashPop):
+		return func() tea.Msg {
+			_, err := m.git.Stash(git.StashOptions{Pop: true, StashID: stashID})
+			if err != nil {
+				return errMsg{err}
+			}
+			return fileWatcherMsg{}
+		}
+	case key.Matches(msg, keys.StashDrop):
+		return func() tea.Msg {
+			_, err := m.git.Stash(git.StashOptions{Drop: true, StashID: stashID})
+			if err != nil {
+				return errMsg{err}
+			}
+			return fileWatcherMsg{}
+		}
+	}
+	return nil
 }
 
 // handleFocusKeys changes the focused panel based on keyboard shortcuts.
