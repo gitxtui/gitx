@@ -16,6 +16,7 @@ builds:
     goos:
       - linux
       - darwin # macOS
+      - windows
     goarch:
       - amd64 # For Intel/AMD processors
       - arm64 # For Apple Silicon and other ARM processors
@@ -30,3 +31,13 @@ archives:
     files:
       - LICENSE
       - README.md
+  
+  - format: zip        
+    # <-- Add this block for Windows
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - LICENSE
+      - README.md
+    replacements:
+      windows: windows
