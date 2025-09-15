@@ -32,8 +32,8 @@ archives:
       - LICENSE
       - README.md
   
+  # zip format to support installation for windows
   - format: zip        
-    # <-- Add this block for Windows
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     files:
