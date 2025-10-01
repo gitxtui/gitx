@@ -31,10 +31,13 @@ func (m Model) View() string {
 	// If not in normal mode, render a pop-up on top.
 	if m.mode != modeNormal {
 		var popup string
-		if m.mode == modeInput {
+		switch m.mode {
+		case modeInput:
 			popup = m.renderInputPopup()
-		} else { // modeConfirm
+		case modeConfirm:
 			popup = m.renderConfirmPopup()
+		case modeCommit:
+			popup = m.renderCommitPopup()
 		}
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, popup)
 	}
@@ -49,6 +52,23 @@ func (m Model) renderInputPopup() string {
 		m.theme.ActiveTitle.Render(" "+m.promptTitle+" "),
 		m.textInput.View(),
 		m.theme.InactiveTitle.Render(" (Enter to confirm, Esc to cancel) "),
+	)
+
+	return lipgloss.NewStyle().
+		Padding(1, 2).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(m.theme.ActiveBorder.Style.GetForeground()).
+		Render(content)
+}
+
+// renderCommitPopup creates the view for the commit message pop-up.
+func (m Model) renderCommitPopup() string {
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		m.theme.ActiveTitle.Render(" Commit Message "),
+		m.textInput.View(),
+		m.descriptionInput.View(),
+		m.theme.InactiveTitle.Render(" (Tab to switch, Enter to save, Esc to cancel) "),
 	)
 
 	return lipgloss.NewStyle().

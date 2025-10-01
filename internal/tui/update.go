@@ -46,6 +46,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateInput(msg)
 	case modeConfirm:
 		return m.updateConfirm(msg)
+	case modeCommit:
+		return m.updateCommit(msg)
 	}
 
 	var cmd tea.Cmd
@@ -148,15 +150,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 
 	case tea.KeyMsg:
+		if m.showHelp {
+			switch {
+			case key.Matches(msg, keys.ToggleHelp):
+				m.toggleHelp()
+				return m, nil
+			case key.Matches(msg, keys.Escape):
+				m.toggleHelp()
+				return m, nil
+			default:
+				// Pass other keys to help viewport for scrolling
+				m.helpViewport, cmd = m.helpViewport.Update(msg)
+				return m, cmd
+			}
+		}
+
 		switch {
 		case key.Matches(msg, keys.Quit):
 			return m, tea.Quit
+
+		case key.Matches(msg, keys.Escape):
+			return m, nil
+
 		case key.Matches(msg, keys.ToggleHelp):
 			m.toggleHelp()
-			return m, nil
+
 		case key.Matches(msg, keys.SwitchTheme):
 			m.nextTheme()
-			return m, nil
+
 		case key.Matches(msg, keys.FocusNext), key.Matches(msg, keys.FocusPrev),
 			key.Matches(msg, keys.FocusZero), key.Matches(msg, keys.FocusOne),
 			key.Matches(msg, keys.FocusTwo), key.Matches(msg, keys.FocusThree),
@@ -215,6 +236,51 @@ func (m Model) updateInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
+}
+
+// updateCommit handles updates when in commit message input mode.
+func (m Model) updateCommit(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEnter:
+			// Only submit if focused on title input
+			if m.textInput.Focused() {
+				title := m.textInput.Value()
+				description := m.descriptionInput.Value()
+				cmd = m.commitCallback(title, description)
+				m.mode = modeNormal
+				m.textInput.Reset()
+				m.descriptionInput.Reset()
+				return m, cmd
+			} else {
+				// If in description, allow newlines
+				m.descriptionInput, cmd = m.descriptionInput.Update(msg)
+				return m, cmd
+			}
+		case tea.KeyEsc:
+			m.mode = modeNormal
+			m.textInput.Reset()
+			m.descriptionInput.Reset()
+			return m, nil
+		case tea.KeyTab:
+			if m.textInput.Focused() {
+				m.textInput.Blur()
+				m.descriptionInput.Focus()
+			} else {
+				m.descriptionInput.Blur()
+				m.textInput.Focus()
+			}
+			return m, nil
+		}
+	}
+	if m.textInput.Focused() {
+		m.textInput, cmd = m.textInput.Update(msg)
+	} else {
+		m.descriptionInput, cmd = m.descriptionInput.Update(msg)
+	}
 	return m, cmd
 }
 
@@ -530,71 +596,79 @@ func (m *Model) handleFilesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 
 	switch {
 	case key.Matches(msg, keys.Commit):
-		m.mode = modeInput
-		m.promptTitle = "Commit Message"
-		m.textInput.Placeholder = "Enter commit message"
+		m.mode = modeCommit
+		m.textInput.SetValue("")
+		m.descriptionInput.SetValue("")
 		m.textInput.Focus()
-		m.inputCallback = func(message string) tea.Cmd {
-			if message == "" {
-				// Don't commit with an empty message
-				return nil
-			}
+		m.commitCallback = func(title, description string) tea.Cmd {
 			return func() tea.Msg {
-				_, err := m.git.Commit(git.CommitOptions{Message: message})
+				commitMsg := title
+				if description != "" {
+					commitMsg = title + "\n\n" + description
+				}
+				_, err := m.git.Commit(git.CommitOptions{Message: commitMsg})
 				if err != nil {
 					return errMsg{err}
 				}
-				return fileWatcherMsg{}
+				return tea.Batch(
+					m.fetchPanelContent(FilesPanel),
+					m.fetchPanelContent(CommitsPanel),
+					m.fetchPanelContent(SecondaryPanel),
+				)
 			}
 		}
-		return nil
+
 	case key.Matches(msg, keys.StageItem):
 		// If the item is unstaged, stage it, and vice-versa.
-		isStaged := len(status) > 0 && status[0] != ' ' && status[0] != '?'
-		return func() tea.Msg {
-			var err error
-			if isStaged {
-				_, err = m.git.ResetFiles([]string{filePath})
-			} else {
-				_, err = m.git.AddFiles([]string{filePath})
-			}
+		if status[0] == ' ' || status[0] == '?' {
+			_, err := m.git.AddFiles([]string{filePath})
 			if err != nil {
-				return errMsg{err}
+				return func() tea.Msg { return errMsg{err} }
 			}
-			return fileWatcherMsg{}
-		}
-	case key.Matches(msg, keys.StageAll):
-		return func() tea.Msg {
-			_, err := m.git.AddFiles([]string{"."})
-			if err != nil {
-				return errMsg{err}
-			}
-			return fileWatcherMsg{}
-		}
-	case key.Matches(msg, keys.Reset):
-		return func() tea.Msg {
+		} else {
 			_, err := m.git.ResetFiles([]string{filePath})
 			if err != nil {
-				return errMsg{err}
+				return func() tea.Msg { return errMsg{err} }
 			}
-			return fileWatcherMsg{}
 		}
+		return m.fetchPanelContent(FilesPanel)
+
+	case key.Matches(msg, keys.StageAll):
+		_, err := m.git.AddFiles([]string{"."})
+		if err != nil {
+			return func() tea.Msg { return errMsg{err} }
+		}
+		return m.fetchPanelContent(FilesPanel)
+
 	case key.Matches(msg, keys.Discard):
-		return func() tea.Msg {
-			_, err := m.git.Restore(git.RestoreOptions{Paths: []string{filePath}, WorkingDir: true})
-			if err != nil {
-				return errMsg{err}
+		m.mode = modeConfirm
+		m.confirmMessage = fmt.Sprintf("Discard changes to %s?", filePath)
+		m.confirmCallback = func(confirmed bool) tea.Cmd {
+			m.mode = modeNormal
+			if !confirmed {
+				return nil
 			}
-			return fileWatcherMsg{}
+			return func() tea.Msg {
+				_, err := m.git.Restore(git.RestoreOptions{
+					Paths:      []string{filePath},
+					WorkingDir: true,
+				})
+				if err != nil {
+					return errMsg{err}
+				}
+				return m.fetchPanelContent(FilesPanel)
+			}
 		}
+
 	case key.Matches(msg, keys.StashAll):
-		return func() tea.Msg {
-			_, err := m.git.StashAll()
-			if err != nil {
-				return errMsg{err}
-			}
-			return fileWatcherMsg{}
+		_, err := m.git.StashAll()
+		if err != nil {
+			return func() tea.Msg { return errMsg{err} }
 		}
+		return tea.Batch(
+			m.fetchPanelContent(FilesPanel),
+			m.fetchPanelContent(StashPanel),
+		)
 	}
 	return nil
 }
@@ -616,17 +690,50 @@ func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 
 	switch {
 	case key.Matches(msg, keys.Checkout):
-		return func() tea.Msg {
-			_, err := m.git.Checkout(branchName)
-			if err != nil {
-				return errMsg{err}
-			}
-			return fileWatcherMsg{}
+		_, err := m.git.Checkout(branchName)
+		if err != nil {
+			return func() tea.Msg { return errMsg{err} }
 		}
+		return tea.Batch(
+			m.fetchPanelContent(StatusPanel),
+			m.fetchPanelContent(BranchesPanel),
+			m.fetchPanelContent(CommitsPanel),
+		)
+
+	case key.Matches(msg, keys.NewBranch):
+		m.mode = modeInput
+		m.promptTitle = "New Branch Name"
+		m.textInput.SetValue("")
+		m.textInput.Focus()
+		m.inputCallback = func(input string) tea.Cmd {
+			m.mode = modeNormal
+			if input == "" {
+				return nil
+			}
+			return func() tea.Msg {
+				// Create the new branch
+				_, err := m.git.ManageBranch(git.BranchOptions{Create: true, Name: input})
+				if err != nil {
+					return errMsg{err}
+				}
+				// checkout to the new branch
+				_, err = m.git.Checkout(input)
+				if err != nil {
+					return errMsg{err}
+				}
+				return tea.Batch(
+					m.fetchPanelContent(BranchesPanel),
+					m.fetchPanelContent(StatusPanel),
+					m.fetchPanelContent(CommitsPanel),
+				)
+			}
+		}
+
 	case key.Matches(msg, keys.DeleteBranch):
 		m.mode = modeConfirm
-		m.confirmMessage = fmt.Sprintf("Are you sure you want to delete branch '%s'?", branchName)
+		m.confirmMessage = fmt.Sprintf("Delete branch %s?", branchName)
 		m.confirmCallback = func(confirmed bool) tea.Cmd {
+			m.mode = modeNormal
 			if !confirmed {
 				return nil
 			}
@@ -635,25 +742,29 @@ func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 				if err != nil {
 					return errMsg{err}
 				}
-				return fileWatcherMsg{}
+				return m.fetchPanelContent(BranchesPanel)
 			}
 		}
-		return nil
+
 	case key.Matches(msg, keys.RenameBranch):
 		m.mode = modeInput
-		m.promptTitle = "Rename Branch"
-		m.textInput.Placeholder = fmt.Sprintf("Enter new branch name (old name: %s)", branchName)
+		m.promptTitle = "New Branch Name"
+		m.textInput.SetValue(branchName)
 		m.textInput.Focus()
-		m.inputCallback = func(newName string) tea.Cmd {
-			if newName == "" {
+		m.inputCallback = func(input string) tea.Cmd {
+			m.mode = modeNormal
+			if input == "" || input == branchName {
 				return nil
 			}
 			return func() tea.Msg {
-				_, err := m.git.RenameBranch(branchName, newName)
+				_, err := m.git.RenameBranch(branchName, input)
 				if err != nil {
 					return errMsg{err}
 				}
-				return fileWatcherMsg{}
+				return tea.Batch(
+					m.fetchPanelContent(BranchesPanel),
+					m.fetchPanelContent(StatusPanel),
+				)
 			}
 		}
 	}
@@ -676,18 +787,54 @@ func (m *Model) handleCommitsPanelKeys(msg tea.KeyMsg) tea.Cmd {
 	sha := parts[1]
 
 	switch {
-	case key.Matches(msg, keys.Revert):
-		return func() tea.Msg {
-			_, err := m.git.Revert(sha)
-			if err != nil {
-				return errMsg{err}
+	case key.Matches(msg, keys.AmendCommit):
+		m.mode = modeCommit
+		m.textInput.SetValue("")
+		m.descriptionInput.SetValue("")
+		m.textInput.Focus()
+		m.commitCallback = func(title, description string) tea.Cmd {
+			return func() tea.Msg {
+				commitMsg := title
+				if description != "" {
+					commitMsg = title + "\n\n" + description
+				}
+				_, err := m.git.Commit(git.CommitOptions{Message: commitMsg, Amend: true})
+				if err != nil {
+					return errMsg{err}
+				}
+				return tea.Batch(
+					m.fetchPanelContent(CommitsPanel),
+					m.fetchPanelContent(FilesPanel),
+					m.fetchPanelContent(SecondaryPanel),
+				)
 			}
-			return fileWatcherMsg{}
 		}
+
+	case key.Matches(msg, keys.Revert):
+		m.mode = modeConfirm
+		m.confirmMessage = fmt.Sprintf("Revert commit %s?", sha)
+		m.confirmCallback = func(confirmed bool) tea.Cmd {
+			m.mode = modeNormal
+			if !confirmed {
+				return nil
+			}
+			return func() tea.Msg {
+				_, err := m.git.Revert(sha)
+				if err != nil {
+					return errMsg{err}
+				}
+				return tea.Batch(
+					m.fetchPanelContent(CommitsPanel),
+					m.fetchPanelContent(FilesPanel),
+				)
+			}
+		}
+
 	case key.Matches(msg, keys.ResetToCommit):
 		m.mode = modeConfirm
-		m.confirmMessage = fmt.Sprintf("Are you sure you want to reset to commit '%s'?", sha)
+		m.confirmMessage = fmt.Sprintf("Hard reset to commit %s? This will discard all changes!", sha)
 		m.confirmCallback = func(confirmed bool) tea.Cmd {
+			m.mode = modeNormal
 			if !confirmed {
 				return nil
 			}
@@ -696,7 +843,11 @@ func (m *Model) handleCommitsPanelKeys(msg tea.KeyMsg) tea.Cmd {
 				if err != nil {
 					return errMsg{err}
 				}
-				return fileWatcherMsg{}
+				return tea.Batch(
+					m.fetchPanelContent(CommitsPanel),
+					m.fetchPanelContent(FilesPanel),
+					m.fetchPanelContent(StatusPanel),
+				)
 			}
 		}
 	}
@@ -720,28 +871,44 @@ func (m *Model) handleStashPanelKeys(msg tea.KeyMsg) tea.Cmd {
 
 	switch {
 	case key.Matches(msg, keys.StashApply):
-		return func() tea.Msg {
-			_, err := m.git.Stash(git.StashOptions{Apply: true, StashID: stashID})
-			if err != nil {
-				return errMsg{err}
-			}
-			return fileWatcherMsg{}
+		_, err := m.git.Stash(git.StashOptions{Apply: true, StashID: stashID})
+		if err != nil {
+			return func() tea.Msg { return errMsg{err} }
 		}
+		return tea.Batch(
+			m.fetchPanelContent(FilesPanel),
+			m.fetchPanelContent(StashPanel),
+		)
+
 	case key.Matches(msg, keys.StashPop):
-		return func() tea.Msg {
-			_, err := m.git.Stash(git.StashOptions{Pop: true, StashID: stashID})
-			if err != nil {
-				return errMsg{err}
-			}
-			return fileWatcherMsg{}
+		_, err := m.git.Stash(git.StashOptions{Pop: true, StashID: stashID})
+		if err != nil {
+			return func() tea.Msg { return errMsg{err} }
 		}
+		return tea.Batch(
+			m.fetchPanelContent(FilesPanel),
+			m.fetchPanelContent(StashPanel),
+		)
+
 	case key.Matches(msg, keys.StashDrop):
-		return func() tea.Msg {
-			_, err := m.git.Stash(git.StashOptions{Drop: true, StashID: stashID})
-			if err != nil {
-				return errMsg{err}
+		m.mode = modeConfirm
+		m.confirmMessage = fmt.Sprintf("Drop stash %s?", stashID)
+		m.confirmCallback = func(confirmed bool) tea.Cmd {
+			m.mode = modeNormal
+			if !confirmed {
+				return nil
 			}
-			return fileWatcherMsg{}
+			return func() tea.Msg {
+				_, err := m.git.Stash(git.StashOptions{Drop: true, StashID: stashID})
+				if err != nil {
+					return errMsg{err}
+				}
+				// Reset cursor if we deleted the last item
+				if m.panels[StashPanel].cursor >= len(m.panels[StashPanel].lines)-1 && m.panels[StashPanel].cursor > 0 {
+					m.panels[StashPanel].cursor--
+				}
+				return m.fetchPanelContent(StashPanel)
+			}
 		}
 	}
 	return nil
