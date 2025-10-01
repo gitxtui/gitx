@@ -587,6 +587,14 @@ func (m *Model) handleFilesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			}
 			return fileWatcherMsg{}
 		}
+	case key.Matches(msg, keys.StashAll):
+		return func() tea.Msg {
+			_, err := m.git.StashAll()
+			if err != nil {
+				return errMsg{err}
+			}
+			return fileWatcherMsg{}
+		}
 	}
 	return nil
 }
@@ -631,6 +639,23 @@ func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			}
 		}
 		return nil
+	case key.Matches(msg, keys.RenameBranch):
+		m.mode = modeInput
+		m.promptTitle = "Rename Branch"
+		m.textInput.Placeholder = fmt.Sprintf("Enter new branch name (old name: %s)", branchName)
+		m.textInput.Focus()
+		m.inputCallback = func(newName string) tea.Cmd {
+			if newName == "" {
+				return nil
+			}
+			return func() tea.Msg {
+				_, err := m.git.RenameBranch(branchName, newName)
+				if err != nil {
+					return errMsg{err}
+				}
+				return fileWatcherMsg{}
+			}
+		}
 	}
 	return nil
 }
@@ -658,6 +683,21 @@ func (m *Model) handleCommitsPanelKeys(msg tea.KeyMsg) tea.Cmd {
 				return errMsg{err}
 			}
 			return fileWatcherMsg{}
+		}
+	case key.Matches(msg, keys.ResetToCommit):
+		m.mode = modeConfirm
+		m.confirmMessage = fmt.Sprintf("Are you sure you want to reset to commit '%s'?", sha)
+		m.confirmCallback = func(confirmed bool) tea.Cmd {
+			if !confirmed {
+				return nil
+			}
+			return func() tea.Msg {
+				_, err := m.git.ResetToCommit(sha)
+				if err != nil {
+					return errMsg{err}
+				}
+				return fileWatcherMsg{}
+			}
 		}
 	}
 	return nil
