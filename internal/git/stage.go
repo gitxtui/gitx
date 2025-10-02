@@ -128,3 +128,18 @@ func (g *GitCommands) Revert(commitHash string) (string, error) {
 
 	return string(output), nil
 }
+
+// ResetToCommit resets the current HEAD to the specified commit.
+func (g *GitCommands) ResetToCommit(commitHash string) (string, error) {
+	if commitHash == "" {
+		return "", fmt.Errorf("commit hash is required")
+	}
+
+	cmd := exec.Command("git", "reset", "--hard", commitHash)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("failed to reset to commit: %v", err)
+	}
+
+	return string(output), nil
+}

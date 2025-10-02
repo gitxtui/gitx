@@ -1,4 +1,10 @@
+<div align="center">
+
 # GITx - A Git TUI Helper
+
+<img src="./assets/images/gitx-terminal.png" alt="GITx Terminal" width="200">
+
+</div>
 
 `gitx` is a Terminal User Interface (TUI) built with Go to help you learn and interact with Git. It provides a visual way to handle common Git commands, making it easier for both beginners and experienced users to manage their repositories without leaving the terminal.
 

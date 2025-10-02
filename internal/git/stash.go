@@ -107,3 +107,13 @@ func (g *GitCommands) Stash(options StashOptions) (string, error) {
 
 	return string(output), nil
 }
+
+// StashAll stashes all changes, including untracked files.
+func (g *GitCommands) StashAll() (string, error) {
+	cmd := exec.Command("git", "stash", "push", "-u", "-m", "gitx auto stash")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("failed to stash all changes: %v", err)
+	}
+	return string(output), nil
+}

@@ -3,6 +3,7 @@ package tui
 import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,6 +17,7 @@ const (
 	modeNormal appMode = iota
 	modeInput
 	modeConfirm
+	modeCommit
 )
 
 // Model represents the state of the TUI.
@@ -37,12 +39,14 @@ type Model struct {
 	repoName          string
 	branchName        string
 	// New fields for pop-ups
-	mode            appMode
-	promptTitle     string
-	confirmMessage  string
-	textInput       textinput.Model
-	inputCallback   func(string) tea.Cmd
-	confirmCallback func(bool) tea.Cmd
+	mode             appMode
+	promptTitle      string
+	confirmMessage   string
+	textInput        textinput.Model
+	descriptionInput textarea.Model
+	inputCallback    func(string) tea.Cmd
+	commitCallback   func(title, description string) tea.Cmd
+	confirmCallback  func(bool) tea.Cmd
 }
 
 // initialModel creates the initial state of the application.
@@ -65,7 +69,12 @@ func initialModel() Model {
 	ti := textinput.New()
 	ti.Focus()
 	ti.CharLimit = 256
-	ti.Width = 50
+	ti.Width = 80
+
+	ta := textarea.New()
+	ta.Placeholder = "Enter commit description"
+	ta.SetWidth(80)
+	ta.SetHeight(5)
 
 	return Model{
 		theme:             Themes[themeNames[0]],
@@ -82,6 +91,7 @@ func initialModel() Model {
 		panels:            panels,
 		mode:              modeNormal,
 		textInput:         ti,
+		descriptionInput:  ta,
 	}
 }
 

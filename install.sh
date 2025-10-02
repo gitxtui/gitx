@@ -83,21 +83,59 @@ main() {
   # Extract the archive.
   tar -xzf "$TEMP_DIR/$FILENAME" -C "$TEMP_DIR"
 
+  # Ensure the installation directory exists.
+  if [ ! -d "$INSTALL_DIR" ]; then
+    echo "Creating ${INSTALL_DIR}..."
+    if sudo mkdir -p "$INSTALL_DIR" 2>/dev/null; then
+      echo "Directory created successfully."
+    else
+      echo "Warning: Could not create ${INSTALL_DIR}."
+      # Fall back to user's local bin directory.
+      INSTALL_DIR="$HOME/.local/bin"
+      echo "Falling back to ${INSTALL_DIR}..."
+      mkdir -p "$INSTALL_DIR"
+    fi
+  fi
+
   # Move the binary to the installation directory.
   # Use sudo if the directory is not writable by the current user.
   if [ -w "$INSTALL_DIR" ]; then
     mv "$TEMP_DIR/gitx" "${INSTALL_DIR}/gitx"
   else
     echo "Root permission is required to install gitx to ${INSTALL_DIR}"
-    sudo mv "$TEMP_DIR/gitx" "${INSTALL_DIR}/gitx"
+    if ! sudo mv "$TEMP_DIR/gitx" "${INSTALL_DIR}/gitx" 2>/dev/null; then
+      echo "Warning: Could not install to ${INSTALL_DIR}."
+      # Fall back to user's local bin directory.
+      INSTALL_DIR="$HOME/.local/bin"
+      echo "Falling back to ${INSTALL_DIR}..."
+      mkdir -p "$INSTALL_DIR"
+      mv "$TEMP_DIR/gitx" "${INSTALL_DIR}/gitx"
+    fi
   fi
+
+  # Make the binary executable.
+  chmod +x "${INSTALL_DIR}/gitx"
 
   # Clean up the temporary directory.
   rm -rf "$TEMP_DIR"
 
   echo ""
-  echo "gitx has been installed successfully!"
-  echo "Run 'gitx' to get started."
+  echo "gitx has been installed successfully to ${INSTALL_DIR}!"
+  
+  # Check if the install directory is in PATH.
+  case ":$PATH:" in
+    *":${INSTALL_DIR}:"*) 
+      echo "Run 'gitx' to get started."
+      ;;
+    *)
+      echo "Note: ${INSTALL_DIR} is not in your PATH."
+      echo "Add it to your PATH by running:"
+      echo "  echo 'export PATH=\"${INSTALL_DIR}:\$PATH\"' >> ~/.zshrc"
+      echo "  source ~/.zshrc"
+      echo ""
+      echo "Or run gitx directly: ${INSTALL_DIR}/gitx"
+      ;;
+  esac
 }
 
 # Run the main function.

@@ -29,7 +29,6 @@ type KeyMap struct {
 	StageItem key.Binding
 	StageAll  key.Binding
 	Discard   key.Binding
-	Reset     key.Binding
 	Stash     key.Binding
 	StashAll  key.Binding
 	Commit    key.Binding
@@ -73,7 +72,7 @@ func (k KeyMap) FullHelp() []HelpSection {
 			Title: "Files",
 			Bindings: []key.Binding{
 				k.Commit, k.Stash, k.StashAll, k.StageItem,
-				k.StageAll, k.Discard, k.Reset,
+				k.StageAll, k.Discard,
 			},
 		},
 		{
@@ -211,17 +210,13 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("d"),
 			key.WithHelp("d", "Discard"),
 		),
-		Reset: key.NewBinding(
-			key.WithKeys("D"),
-			key.WithHelp("D", "Reset"),
-		),
 		Stash: key.NewBinding(
 			key.WithKeys("s"),
 			key.WithHelp("s", "Stash"),
 		),
 		StashAll: key.NewBinding(
 			key.WithKeys("S"),
-			key.WithHelp("S", "Stage all"),
+			key.WithHelp("S", "Stash all"),
 		),
 		Commit: key.NewBinding(
 			key.WithKeys("c"),

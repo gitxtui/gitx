@@ -3,6 +3,10 @@
 version: 2
 project_name: gitx
 
+before:
+  hooks:
+    - go mod tidy
+
 builds:
   - # Each build is an object with its own configuration.
     id: gitx
@@ -21,19 +25,50 @@ builds:
     goarch:
       - amd64 # For Intel/AMD processors
       - arm64 # For Apple Silicon and other ARM processors
+    # Flags to pass to the Go linker.
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
 
 # Configuration for the archives (e.g., .tar.gz files).
 archives:
-  - format: tar.gz
-    # This template creates archives like "gitx_1.0.0_linux_amd64.tar.gz"
+  - # Format for the archive (tar.gz for Unix-like systems, zip for Windows).
+    format: tar.gz
+    # This template creates archives with platform-specific naming conventions
+    # Examples: "gitx_1.0.0_Linux_x86_64.tar.gz", "gitx_1.0.0_Darwin_arm64.tar.gz"
     name_template: >-
-      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+      {{ .ProjectName }}_{{ .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
     # Files to include in the archive along with the binary.
     files:
       - LICENSE
       - README.md
-
-    # zip format to support installation for windows
+    # Override the archive format for specific operating systems.
+    # Windows users typically expect .zip files instead of .tar.gz.
     format_overrides:
       - goos: windows
         format: zip
+
+# Configuration for generating checksums of release artifacts.
+# This creates a checksums.txt file containing SHA256 hashes of all binaries and archives.
+# Users can verify file integrity by running: sha256sum -c checksums.txt
+checksum:
+  name_template: 'checksums.txt'
+
+# Configuration for snapshot releases (non-tagged builds).
+# These are used for testing or CI builds that aren't official releases.
+# Example: If the last tag was v1.2.3, a snapshot would be named v1.2.3-next
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+# Configuration for the automatically generated changelog.
+# This appears in the GitHub release notes.
+changelog:
+  # Filter out certain commit types from the changelog.
+  filters:
+    exclude:
+      - '^docs:'
+      - '^chore:'
