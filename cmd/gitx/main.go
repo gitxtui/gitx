@@ -4,13 +4,21 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gitxtui/gitx/internal/tui"
 	zone "github.com/lrstanley/bubblezone"
 )
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+		fmt.Printf("gitx version: %s\n", version)
+		return
+	}
+
 	zone.NewGlobal()
 	defer zone.Close()
 

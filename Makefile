@@ -3,6 +3,11 @@ BINARY_NAME=gitx
 CMD_PATH=./cmd/gitx
 BUILD_DIR=./build
 
+# Versioning -- NEW SECTION
+# Get the latest git tag, or fallback to "dev" if no tags are found.
+VERSION := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+LDFLAGS := -ldflags="-X 'main.version=$(VERSION)'"
+
 # Default target executed when you run `make`
 all: build
 
@@ -16,7 +21,7 @@ sync:
 build: sync
 	@echo "Building the application..."
 	@mkdir -p $(BUILD_DIR)
-	@go build -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_PATH)
+	@go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_PATH)
 	@echo "Binary available at $(BUILD_DIR)/$(BINARY_NAME)"
 
 # Runs the application
@@ -37,7 +42,7 @@ ci:
 # Installs the binary to /usr/local/bin
 install: build
 	@echo "Installing $(BINARY_NAME)..."
-	@go install $(CMD_PATH)
+	@go install $(LDFLAGS) $(CMD_PATH)
 	@echo "$(BINARY_NAME) installed successfully"
 
 # Cleans the build artifacts
