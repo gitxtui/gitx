@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"os/exec"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gitxtui/gitx/internal/tui"
@@ -11,6 +13,11 @@ import (
 )
 
 func main() {
+	if err := ensureGitRepo(); err != nil {
+		fmt.Fprintln(os.Stderr, err) // print to stderr
+		os.Exit(1)
+	}
+
 	zone.NewGlobal()
 	defer zone.Close()
 
@@ -21,4 +28,12 @@ func main() {
 		}
 	}
 	fmt.Println("Bye from gitx! :)")
+}
+
+func ensureGitRepo() error {
+	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("Error: not a git repository")
+	}
+	return nil
 }
