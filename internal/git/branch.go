@@ -18,7 +18,7 @@ func (g *GitCommands) GetBranches() ([]*Branch, error) {
 	format := "%(committerdate:relative)\t%(refname:short)\t%(HEAD)"
 	args := []string{"for-each-ref", "--sort=-committerdate", "refs/heads/", fmt.Sprintf("--format=%s", format)}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (g *GitCommands) ManageBranch(options BranchOptions) (string, error) {
 		args = append(args, options.Name)
 	}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("branch operation failed: %v", err)
 	}
@@ -127,7 +127,7 @@ func (g *GitCommands) Checkout(branchName string) (string, error) {
 	}
 	args := []string{"checkout", branchName}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to checkout branch: %v", err)
 	}
@@ -142,7 +142,7 @@ func (g *GitCommands) Switch(branchName string) (string, error) {
 	}
 	args := []string{"switch", branchName}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to switch branch: %v", err)
 	}
@@ -157,7 +157,7 @@ func (g *GitCommands) RenameBranch(oldName, newName string) (string, error) {
 	}
 	args := []string{"branch", "-m", oldName, newName}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to rename branch: %v", err)
 	}

@@ -38,7 +38,7 @@ func (g *GitCommands) ShowDiff(options DiffOptions) (string, error) {
 		args = append(args, options.Commit2)
 	}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to get diff: %v", err)
 	}

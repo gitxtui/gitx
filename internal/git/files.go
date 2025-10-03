@@ -8,7 +8,7 @@ import (
 func (g *GitCommands) ListFiles() (string, error) {
 	args := []string{"ls-files"}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to list files: %v", err)
 	}
@@ -23,7 +23,7 @@ func (g *GitCommands) BlameFile(filePath string) (string, error) {
 	}
 
 	args := []string{"blame", filePath}
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to blame file: %v", err)
 	}

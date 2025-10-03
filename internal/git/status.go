@@ -12,7 +12,7 @@ func (g *GitCommands) GetStatus(options StatusOptions) (string, error) {
 		args = append(args, "--porcelain")
 	}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), err
 	}

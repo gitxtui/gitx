@@ -12,7 +12,7 @@ func (g *GitCommands) InitRepository(path string) (string, error) {
 	}
 	args := []string{"init", path}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to initialize repository: %v", err)
 	}

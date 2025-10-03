@@ -29,7 +29,7 @@ func (g *GitCommands) Merge(options MergeOptions) (string, error) {
 
 	args = append(args, options.BranchName)
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to merge branch: %v", err)
 	}
@@ -62,7 +62,7 @@ func (g *GitCommands) Rebase(options RebaseOptions) (string, error) {
 		args = append(args, options.BranchName)
 	}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to rebase branch: %v", err)
 	}

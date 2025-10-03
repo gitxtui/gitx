@@ -26,7 +26,7 @@ func (g *GitCommands) Commit(options CommitOptions) (string, error) {
 		args = append(args, "-m", options.Message)
 	}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to commit changes: %v", err)
 	}
@@ -41,7 +41,7 @@ func (g *GitCommands) ShowCommit(commitHash string) (string, error) {
 	}
 	args := []string{"show", "--color=always", commitHash}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to show commit: %v", err)
 	}

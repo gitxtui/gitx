@@ -19,9 +19,10 @@ func NewGitCommands() *GitCommands {
 }
 
 // executeCommand centralizes the execution of all git commands and serves
-// as a single point for logging. takes a list of flags passed to git command
-// as arguments and returns 1. standard output and 2. standard error
-func (g *GitCommands) executeCommand(args ...string) (string, error) {
+// as a single point for logging. It takes a list of flags passed to the git
+// command as arguments and returns 1. standard output, 2. the command string
+// and 3. standard error
+func (g *GitCommands) executeCommand(args ...string) (string, string, error) {
 	cmdStr := "git " + strings.Join(args, " ")
 	log.Printf("Executing command: %s", cmdStr)
 
@@ -30,8 +31,8 @@ func (g *GitCommands) executeCommand(args ...string) (string, error) {
 
 	if err != nil {
 		log.Printf("Error: %v, Output: %s", err, string(output))
-		return string(output), err
+		return string(output), cmdStr, err
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }

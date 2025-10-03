@@ -35,7 +35,7 @@ func (g *GitCommands) ManageTag(options TagOptions) (string, error) {
 		}
 	}
 
-	output, err := g.executeCommand(args...)
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("tag operation failed: %v", err)
 	}
