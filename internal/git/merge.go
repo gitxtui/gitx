@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"os/exec"
 )
 
 // MergeOptions specifies the options for the git merge command.
@@ -30,8 +29,7 @@ func (g *GitCommands) Merge(options MergeOptions) (string, error) {
 
 	args = append(args, options.BranchName)
 
-	cmd := exec.Command("git", args...)
-	output, err := cmd.CombinedOutput()
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to merge branch: %v", err)
 	}
@@ -64,8 +62,7 @@ func (g *GitCommands) Rebase(options RebaseOptions) (string, error) {
 		args = append(args, options.BranchName)
 	}
 
-	cmd := exec.Command("git", args...)
-	output, err := cmd.CombinedOutput()
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to rebase branch: %v", err)
 	}

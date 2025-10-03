@@ -11,8 +11,8 @@ func (g *GitCommands) GetStatus(options StatusOptions) (string, error) {
 	if options.Porcelain {
 		args = append(args, "--porcelain")
 	}
-	cmd := ExecCommand("git", args...)
-	output, err := cmd.CombinedOutput()
+
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), err
 	}

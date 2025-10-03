@@ -18,8 +18,7 @@ func (g *GitCommands) GetBranches() ([]*Branch, error) {
 	format := "%(committerdate:relative)\t%(refname:short)\t%(HEAD)"
 	args := []string{"for-each-ref", "--sort=-committerdate", "refs/heads/", fmt.Sprintf("--format=%s", format)}
 
-	cmd := ExecCommand("git", args...)
-	output, err := cmd.CombinedOutput()
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,8 +112,7 @@ func (g *GitCommands) ManageBranch(options BranchOptions) (string, error) {
 		args = append(args, options.Name)
 	}
 
-	cmd := ExecCommand("git", args...)
-	output, err := cmd.CombinedOutput()
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("branch operation failed: %v", err)
 	}
@@ -127,9 +125,9 @@ func (g *GitCommands) Checkout(branchName string) (string, error) {
 	if branchName == "" {
 		return "", fmt.Errorf("branch name is required")
 	}
+	args := []string{"checkout", branchName}
 
-	cmd := ExecCommand("git", "checkout", branchName)
-	output, err := cmd.CombinedOutput()
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to checkout branch: %v", err)
 	}
@@ -142,9 +140,9 @@ func (g *GitCommands) Switch(branchName string) (string, error) {
 	if branchName == "" {
 		return "", fmt.Errorf("branch name is required")
 	}
+	args := []string{"switch", branchName}
 
-	cmd := ExecCommand("git", "switch", branchName)
-	output, err := cmd.CombinedOutput()
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to switch branch: %v", err)
 	}
@@ -157,9 +155,9 @@ func (g *GitCommands) RenameBranch(oldName, newName string) (string, error) {
 	if oldName == "" || newName == "" {
 		return "", fmt.Errorf("both old and new branch names are required")
 	}
+	args := []string{"branch", "-m", oldName, newName}
 
-	cmd := ExecCommand("git", "branch", "-m", oldName, newName)
-	output, err := cmd.CombinedOutput()
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to rename branch: %v", err)
 	}

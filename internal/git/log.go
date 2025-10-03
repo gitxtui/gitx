@@ -72,8 +72,7 @@ func (g *GitCommands) ShowLog(options LogOptions) (string, error) {
 		args = append(args, options.Branch)
 	}
 
-	cmd := ExecCommand("git", args...)
-	output, err := cmd.CombinedOutput()
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to get log: %w", err)
 	}

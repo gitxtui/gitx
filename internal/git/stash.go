@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
@@ -20,8 +19,9 @@ func (g *GitCommands) GetStashes() ([]*Stash, error) {
 	// Message: WIP on master: 52f3a6b feat: add panels
 	// We use a unique delimiter to reliably parse the multi-line output for each stash.
 	format := "%gD%n%gs"
-	cmd := ExecCommand("git", "stash", "list", fmt.Sprintf("--format=%s", format))
-	output, err := cmd.CombinedOutput()
+	args := []string{"stash", "list", fmt.Sprintf("--format=%s", format)}
+
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +95,7 @@ func (g *GitCommands) Stash(options StashOptions) (string, error) {
 		}
 	}
 
-	cmd := exec.Command("git", args...)
-	output, err := cmd.CombinedOutput()
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		// The command fails if there's no stash.
 		if strings.Contains(string(output), "No stash entries found") || strings.Contains(string(output), "No stash found") {
@@ -110,8 +109,9 @@ func (g *GitCommands) Stash(options StashOptions) (string, error) {
 
 // StashAll stashes all changes, including untracked files.
 func (g *GitCommands) StashAll() (string, error) {
-	cmd := exec.Command("git", "stash", "push", "-u", "-m", "gitx auto stash")
-	output, err := cmd.CombinedOutput()
+	args := []string{"stash", "push", "-u", "-m", "gitx auto stash"}
+
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to stash all changes: %v", err)
 	}

@@ -1,4 +1,4 @@
-package gitxlog
+package log
 
 import (
 	"log"

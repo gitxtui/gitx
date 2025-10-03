@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"os/exec"
 )
 
 // TagOptions specifies the options for managing tags.
@@ -36,8 +35,7 @@ func (g *GitCommands) ManageTag(options TagOptions) (string, error) {
 		}
 	}
 
-	cmd := exec.Command("git", args...)
-	output, err := cmd.CombinedOutput()
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("tag operation failed: %v", err)
 	}

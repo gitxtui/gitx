@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"os/exec"
 )
 
 // DiffOptions specifies the options for the git diff command.
@@ -39,8 +38,7 @@ func (g *GitCommands) ShowDiff(options DiffOptions) (string, error) {
 		args = append(args, options.Commit2)
 	}
 
-	cmd := exec.Command("git", args...)
-	output, err := cmd.CombinedOutput()
+	output, err := g.executeCommand(args...)
 	if err != nil {
 		return string(output), fmt.Errorf("failed to get diff: %v", err)
 	}
