@@ -11,9 +11,9 @@ type CommitOptions struct {
 }
 
 // Commit records changes to the repository.
-func (g *GitCommands) Commit(options CommitOptions) (string, error) {
+func (g *GitCommands) Commit(options CommitOptions) (string, string, error) {
 	if options.Message == "" && !options.Amend {
-		return "", fmt.Errorf("commit message is required unless amending")
+		return "", "", fmt.Errorf("commit message is required unless amending")
 	}
 
 	args := []string{"commit"}
@@ -26,12 +26,12 @@ func (g *GitCommands) Commit(options CommitOptions) (string, error) {
 		args = append(args, "-m", options.Message)
 	}
 
-	output, _, err := g.executeCommand(args...)
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to commit changes: %v", err)
+		return string(output), cmdStr, fmt.Errorf("failed to commit changes: %v", err)
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }
 
 // ShowCommit shows the details of a specific commit.

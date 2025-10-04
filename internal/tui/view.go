@@ -21,6 +21,7 @@ func stripAnsi(str string) string {
 
 // View is the main render function for the application.
 func (m Model) View() string {
+
 	var finalView string
 	if m.showHelp {
 		finalView = m.renderHelpView()
@@ -107,7 +108,7 @@ func (m Model) renderMainView() string {
 
 	titles := map[Panel]string{
 		MainPanel: "Main", StatusPanel: "Status", FilesPanel: "Files",
-		BranchesPanel: "Branches", CommitsPanel: "Commits", StashPanel: "Stash", SecondaryPanel: "Secondary",
+		BranchesPanel: "Branches", CommitsPanel: "Commits", StashPanel: "Stash", SecondaryPanel: "Command History",
 	}
 
 	leftColumn := m.renderPanelColumn(leftpanels, titles, leftSectionWidth)

@@ -19,7 +19,11 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to set up logger: %v\n", err)
 	}
-	defer logFile.Close()
+	defer func() {
+		if err := logFile.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to close log file: %v\n", err)
+		}
+	}()
 
 	if err := ensureGitRepo(); err != nil {
 		fmt.Fprintln(os.Stderr, err) // print to stderr

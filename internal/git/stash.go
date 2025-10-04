@@ -59,7 +59,7 @@ type StashOptions struct {
 }
 
 // Stash saves your local modifications away and reverts the working directory to match the HEAD commit.
-func (g *GitCommands) Stash(options StashOptions) (string, error) {
+func (g *GitCommands) Stash(options StashOptions) (string, string, error) {
 	if !options.Push && !options.Pop && !options.Apply && !options.List && !options.Show && !options.Drop {
 		options.Push = true
 	}
@@ -95,25 +95,25 @@ func (g *GitCommands) Stash(options StashOptions) (string, error) {
 		}
 	}
 
-	output, _, err := g.executeCommand(args...)
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
 		// The command fails if there's no stash.
 		if strings.Contains(string(output), "No stash entries found") || strings.Contains(string(output), "No stash found") {
-			return "No stashes found.", nil
+			return "No stashes found.", cmdStr, nil
 		}
-		return string(output), fmt.Errorf("stash operation failed: %v", err)
+		return string(output), cmdStr, fmt.Errorf("stash operation failed: %v", err)
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }
 
 // StashAll stashes all changes, including untracked files.
-func (g *GitCommands) StashAll() (string, error) {
+func (g *GitCommands) StashAll() (string, string, error) {
 	args := []string{"stash", "push", "-u", "-m", "gitx auto stash"}
 
-	output, _, err := g.executeCommand(args...)
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to stash all changes: %v", err)
+		return string(output), cmdStr, fmt.Errorf("failed to stash all changes: %v", err)
 	}
-	return string(output), nil
+	return string(output), cmdStr, nil
 }

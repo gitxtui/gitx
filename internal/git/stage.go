@@ -5,35 +5,35 @@ import (
 )
 
 // AddFiles adds file contents to the index (staging area).
-func (g *GitCommands) AddFiles(paths []string) (string, error) {
+func (g *GitCommands) AddFiles(paths []string) (string, string, error) {
 	if len(paths) == 0 {
 		paths = []string{"."}
 	}
 
 	args := append([]string{"add"}, paths...)
 
-	output, _, err := g.executeCommand(args...)
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to add files: %v", err)
+		return string(output), cmdStr, fmt.Errorf("failed to add files: %v", err)
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }
 
 // ResetFiles resets the current HEAD to the specified state, unstaging files.
-func (g *GitCommands) ResetFiles(paths []string) (string, error) {
+func (g *GitCommands) ResetFiles(paths []string) (string, string, error) {
 	if len(paths) == 0 {
-		return "", fmt.Errorf("at least one file path is required")
+		return "", "", fmt.Errorf("at least one file path is required")
 	}
 
 	args := append([]string{"reset"}, paths...)
 
-	output, _, err := g.executeCommand(args...)
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to unstage files: %v", err)
+		return string(output), cmdStr, fmt.Errorf("failed to unstage files: %v", err)
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }
 
 // RemoveFiles removes files from the working tree and from the index.
@@ -83,9 +83,9 @@ type RestoreOptions struct {
 }
 
 // Restore restores working tree files.
-func (g *GitCommands) Restore(options RestoreOptions) (string, error) {
+func (g *GitCommands) Restore(options RestoreOptions) (string, string, error) {
 	if len(options.Paths) == 0 {
-		return "", fmt.Errorf("at least one file path is required")
+		return "", "", fmt.Errorf("at least one file path is required")
 	}
 
 	args := []string{"restore"}
@@ -104,42 +104,42 @@ func (g *GitCommands) Restore(options RestoreOptions) (string, error) {
 
 	args = append(args, options.Paths...)
 
-	output, _, err := g.executeCommand(args...)
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to restore files: %v", err)
+		return string(output), cmdStr, fmt.Errorf("failed to restore files: %v", err)
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }
 
 // Revert is used to record some new commits to reverse the effect of some earlier commits.
-func (g *GitCommands) Revert(commitHash string) (string, error) {
+func (g *GitCommands) Revert(commitHash string) (string, string, error) {
 	if commitHash == "" {
-		return "", fmt.Errorf("commit hash is required")
+		return "", "", fmt.Errorf("commit hash is required")
 	}
 
 	args := []string{"revert", commitHash}
 
-	output, _, err := g.executeCommand(args...)
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to revert commit: %v", err)
+		return string(output), cmdStr, fmt.Errorf("failed to revert commit: %v", err)
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }
 
 // ResetToCommit resets the current HEAD to the specified commit.
-func (g *GitCommands) ResetToCommit(commitHash string) (string, error) {
+func (g *GitCommands) ResetToCommit(commitHash string) (string, string, error) {
 	if commitHash == "" {
-		return "", fmt.Errorf("commit hash is required")
+		return "", "", fmt.Errorf("commit hash is required")
 	}
 
 	args := []string{"reset", "--hard", commitHash}
 
-	output, _, err := g.executeCommand(args...)
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to reset to commit: %v", err)
+		return string(output), cmdStr, fmt.Errorf("failed to reset to commit: %v", err)
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }

@@ -167,7 +167,7 @@ func TestGitCommands_Commit(t *testing.T) {
 	g := NewGitCommands()
 
 	// Test empty commit message
-	if _, err := g.Commit(CommitOptions{}); err == nil {
+	if _, _, err := g.Commit(CommitOptions{}); err == nil {
 		t.Error("Commit() with empty message should fail")
 	}
 
@@ -178,10 +178,10 @@ func TestGitCommands_Commit(t *testing.T) {
 	if err := os.WriteFile("commit-test.txt", []byte("amended content"), 0644); err != nil {
 		t.Fatalf("failed to amend test file: %v", err)
 	}
-	if _, err := g.AddFiles([]string{"commit-test.txt"}); err != nil {
+	if _, _, err := g.AddFiles([]string{"commit-test.txt"}); err != nil {
 		t.Fatalf("failed to add amended file: %v", err)
 	}
-	if _, err := g.Commit(CommitOptions{Amend: true, Message: "Amended commit"}); err != nil {
+	if _, _, err := g.Commit(CommitOptions{Amend: true, Message: "Amended commit"}); err != nil {
 		t.Errorf("Commit() with amend failed: %v", err)
 	}
 }
@@ -196,12 +196,12 @@ func TestGitCommands_BranchAndCheckout(t *testing.T) {
 	branchName := "feature-branch"
 
 	// Create branch
-	if _, err := g.ManageBranch(BranchOptions{Create: true, Name: branchName}); err != nil {
+	if _, _, err := g.ManageBranch(BranchOptions{Create: true, Name: branchName}); err != nil {
 		t.Fatalf("ManageBranch() create failed: %v", err)
 	}
 
 	// Checkout branch
-	if _, err := g.Checkout(branchName); err != nil {
+	if _, _, err := g.Checkout(branchName); err != nil {
 		t.Fatalf("Checkout() failed: %v", err)
 	}
 
@@ -211,7 +211,7 @@ func TestGitCommands_BranchAndCheckout(t *testing.T) {
 	}
 
 	// Delete branch
-	if _, err := g.ManageBranch(BranchOptions{Delete: true, Name: branchName}); err != nil {
+	if _, _, err := g.ManageBranch(BranchOptions{Delete: true, Name: branchName}); err != nil {
 		t.Fatalf("ManageBranch() delete failed: %v", err)
 	}
 }
@@ -227,16 +227,16 @@ func TestGitCommands_Merge(t *testing.T) {
 
 	// Create feature branch and commit
 	branchName := "feature"
-	if _, err := g.ManageBranch(BranchOptions{Create: true, Name: branchName}); err != nil {
+	if _, _, err := g.ManageBranch(BranchOptions{Create: true, Name: branchName}); err != nil {
 		t.Fatalf("failed to create branch: %v", err)
 	}
-	if _, err := g.Checkout(branchName); err != nil {
+	if _, _, err := g.Checkout(branchName); err != nil {
 		t.Fatalf("failed to checkout branch: %v", err)
 	}
 	createAndCommitFile(t, g, "feature.txt", "feature content", "feature commit")
 
 	// Switch back to master and make another commit
-	if _, err := g.Checkout("master"); err != nil {
+	if _, _, err := g.Checkout("master"); err != nil {
 		t.Fatalf("failed to checkout master: %v", err)
 	}
 	createAndCommitFile(t, g, "master2.txt", "master2 content", "master2 commit")
@@ -262,22 +262,22 @@ func TestGitCommands_Rebase(t *testing.T) {
 
 	// Create feature branch and commit
 	branchName := "feature"
-	if _, err := g.ManageBranch(BranchOptions{Create: true, Name: branchName}); err != nil {
+	if _, _, err := g.ManageBranch(BranchOptions{Create: true, Name: branchName}); err != nil {
 		t.Fatalf("failed to create branch: %v", err)
 	}
-	if _, err := g.Checkout(branchName); err != nil {
+	if _, _, err := g.Checkout(branchName); err != nil {
 		t.Fatalf("failed to checkout branch: %v", err)
 	}
 	createAndCommitFile(t, g, "feature.txt", "feature content", "feature commit")
 
 	// Switch back to master and make another commit
-	if _, err := g.Checkout("master"); err != nil {
+	if _, _, err := g.Checkout("master"); err != nil {
 		t.Fatalf("failed to checkout master: %v", err)
 	}
 	createAndCommitFile(t, g, "master2.txt", "master2 content", "master2 commit")
 
 	// Switch to feature branch and rebase onto master
-	if _, err := g.Checkout(branchName); err != nil {
+	if _, _, err := g.Checkout(branchName); err != nil {
 		t.Fatalf("failed to checkout feature branch: %v", err)
 	}
 	output, err := g.Rebase(RebaseOptions{BranchName: "master"})
@@ -300,12 +300,12 @@ func TestGitCommands_FileOperations(t *testing.T) {
 	if err := os.WriteFile("new-file.txt", []byte("new"), 0644); err != nil {
 		t.Fatalf("failed to create new file: %v", err)
 	}
-	if _, err := g.AddFiles([]string{"new-file.txt"}); err != nil {
+	if _, _, err := g.AddFiles([]string{"new-file.txt"}); err != nil {
 		t.Errorf("AddFiles() failed: %v", err)
 	}
 
 	// Test Reset
-	if _, err := g.ResetFiles([]string{"new-file.txt"}); err != nil {
+	if _, _, err := g.ResetFiles([]string{"new-file.txt"}); err != nil {
 		t.Errorf("ResetFiles() failed: %v", err)
 	}
 
@@ -340,12 +340,12 @@ func TestGitCommands_Stash(t *testing.T) {
 	}
 
 	// Stash push
-	if _, err := g.Stash(StashOptions{Push: true, Message: "test stash"}); err != nil {
+	if _, _, err := g.Stash(StashOptions{Push: true, Message: "test stash"}); err != nil {
 		t.Fatalf("Stash() push failed: %v", err)
 	}
 
 	// Stash apply
-	if _, err := g.Stash(StashOptions{Apply: true}); err != nil {
+	if _, _, err := g.Stash(StashOptions{Apply: true}); err != nil {
 		t.Errorf("Stash() apply failed: %v", err)
 	}
 }
