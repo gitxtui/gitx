@@ -257,7 +257,7 @@ func load_config() (*themeConfig, error){
 }
 
 func load_custom_theme(name string) (*Palette, error){
-	themePath := filepath.Join(os.Getenv("HOME"), ".config", "gitx", "themes", name)
+	themePath := filepath.Join(os.Getenv("HOME"), ".config", "gitx", "themes", name+".toml")
 	if _,err := os.Stat(themePath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("theme not found: %s", name)
 	}
