@@ -15,8 +15,8 @@ INSTALL_DIR="/usr/local/bin"
 # Get the operating system.
 get_os() {
   case "$(uname -s)" in
-    Linux*)   OS='linux';;
-    Darwin*)  OS='darwin';;
+    Linux*)   OS='Linux';;
+    Darwin*)  OS='Darwin';;
     *)
       echo "Unsupported operating system: $(uname -s)"
       exit 1
@@ -28,8 +28,9 @@ get_os() {
 # Get the architecture.
 get_arch() {
   case "$(uname -m)" in
-    x86_64|amd64) ARCH='amd64';;
+    x86_64|amd64) ARCH='x86_64';;
     aarch64|arm64) ARCH='arm64';;
+    i386|i686) ARCH='i386';;
     *)
       echo "Unsupported architecture: $(uname -m)"
       exit 1
@@ -40,12 +41,13 @@ get_arch() {
 
 # Get the latest release tag from the GitHub API.
 get_latest_release() {
-  API_URL="https://api.github.com/repos/$REPO/releases"
+  API_URL="https://api.github.com/repos/$REPO/releases/latest"
   
   # Use python if available, otherwise fall back to perl.
-  if command -v python >/dev/null 2>&1; then
-    # This python script now checks if the response is a list and not empty.
-    curl -sL "$API_URL" | python -c "import sys, json; data = json.load(sys.stdin); print(data[0]['tag_name'] if isinstance(data, list) and data else '')"
+  if command -v python3 >/dev/null 2>&1; then
+    curl -sL "$API_URL" | python3 -c "import sys, json; print(json.load(sys.stdin)['tag_name'])"
+  elif command -v python >/dev/null 2>&1; then
+    curl -sL "$API_URL" | python -c "import sys, json; print(json.load(sys.stdin)['tag_name'])"
   elif command -v perl >/dev/null 2>&1; then
     curl -sL "$API_URL" | perl -ne 'if (/\"tag_name\":\s*\"([^\"]+)\"/) { print $1; exit }'
   else
@@ -69,19 +71,28 @@ main() {
   fi
 
   # Construct the archive filename and download URL.
-  VERSION_NUM=$(echo "$VERSION" | sed 's/v//')
-  FILENAME="gitx_${VERSION_NUM}_${OS}_${ARCH}.tar.gz"
+  FILENAME="gitx_${OS}_${ARCH}.tar.gz"
   DOWNLOAD_URL="https://github.com/$REPO/releases/download/${VERSION}/${FILENAME}"
 
   # Download and extract the binary.
   echo "Downloading gitx ${VERSION} for ${OS}/${ARCH}..."
   TEMP_DIR=$(mktemp -d)
-  # Download to a temporary directory.
-  curl -sSL -o "$TEMP_DIR/$FILENAME" "$DOWNLOAD_URL"
+  
+  # Download to a temporary directory with error checking.
+  if ! curl -sSL -f -o "$TEMP_DIR/$FILENAME" "$DOWNLOAD_URL"; then
+    echo "Error: Failed to download gitx from $DOWNLOAD_URL"
+    echo "Please check that the release exists and try again."
+    rm -rf "$TEMP_DIR"
+    exit 1
+  fi
 
   echo "Installing gitx to ${INSTALL_DIR}..."
   # Extract the archive.
-  tar -xzf "$TEMP_DIR/$FILENAME" -C "$TEMP_DIR"
+  if ! tar -xzf "$TEMP_DIR/$FILENAME" -C "$TEMP_DIR"; then
+    echo "Error: Failed to extract archive. The downloaded file may be corrupted."
+    rm -rf "$TEMP_DIR"
+    exit 1
+  fi
 
   # Ensure the installation directory exists.
   if [ ! -d "$INSTALL_DIR" ]; then
