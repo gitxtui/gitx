@@ -74,7 +74,7 @@ func (g *GitCommands) ShowLog(options LogOptions) (string, error) {
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to get log: %w", err)
+		return string(output), err
 	}
 
 	return string(output), nil

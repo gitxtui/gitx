@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/gitxtui/gitx/internal/git"
 	zone "github.com/lrstanley/bubblezone"
 )
@@ -63,12 +64,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case commandExecutedMsg:
 		// A command was successful, add it to our history.
-		m.CommandHistory = append(m.CommandHistory, msg.cmdStr)
+		m.CommandHistory = append([]string{msg.cmdStr}, m.CommandHistory...)
 		// Update the history viewport content.
-		historyContent := strings.Join(m.CommandHistory, "\n")
+		historyContent := strings.Join(m.CommandHistory, "\n\n")
 		m.panels[SecondaryPanel].content = historyContent
 		m.panels[SecondaryPanel].viewport.SetContent(historyContent)
-		m.panels[SecondaryPanel].viewport.GotoBottom()
+		m.panels[SecondaryPanel].viewport.GotoTop()
 
 		// Trigger a refresh of all
 		// relevant panels from this central location.
@@ -82,7 +83,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		// You can improve this to show errors in the UI
 		log.Printf("error: %v", msg)
-		return m, nil
+
+		errorLine := m.theme.ErrorText.Render(msg.Error())
+		m.CommandHistory = append([]string{errorLine}, m.CommandHistory...)
+
+		// Update the history panel's content and scroll to the new error.
+		rawHistoryContent := strings.Join(m.CommandHistory, "\n\n")
+		contentWidth := m.panels[SecondaryPanel].viewport.Width
+		wrappedContent := lipgloss.NewStyle().Width(contentWidth).Render(rawHistoryContent)
+
+		m.panels[SecondaryPanel].content = wrappedContent
+		m.panels[SecondaryPanel].viewport.SetContent(wrappedContent)
+		m.panels[SecondaryPanel].viewport.GotoTop()
+		return m, tea.Batch(
+			m.fetchPanelContent(FilesPanel),
+			m.fetchPanelContent(CommitsPanel),
+			m.fetchPanelContent(BranchesPanel),
+			m.fetchPanelContent(StatusPanel),
+		)
 
 	case mainContentUpdatedMsg:
 		m.panels[MainPanel].content = msg.content

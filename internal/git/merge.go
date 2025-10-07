@@ -64,7 +64,7 @@ func (g *GitCommands) Rebase(options RebaseOptions) (string, error) {
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to rebase branch: %v", err)
+		return string(output), err
 	}
 
 	return string(output), nil

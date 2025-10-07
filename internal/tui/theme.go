@@ -119,6 +119,7 @@ type Theme struct {
 	ActiveBorder   BorderStyle
 	InactiveBorder BorderStyle
 	Tree           TreeStyle
+	ErrorText      lipgloss.Style
 }
 
 // BorderStyle defines the characters and styles for a panel's border.
@@ -204,6 +205,7 @@ func NewThemeFromPalette(p Palette) Theme {
 			Prefix:        treePrefix,
 			PrefixLast:    treePrefixLast,
 		},
+		ErrorText: lipgloss.NewStyle().Foreground(lipgloss.Color(p.BrightRed)),
 	}
 }
 

@@ -35,7 +35,7 @@ func (g *GitCommands) ManageRemote(options RemoteOptions) (string, error) {
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("remote operation failed: %v", err)
+		return string(output), err
 	}
 
 	return string(output), nil
@@ -55,7 +55,7 @@ func (g *GitCommands) Fetch(remote string, branch string) (string, error) {
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to fetch: %v", err)
+		return string(output), err
 	}
 
 	return string(output), nil
@@ -86,7 +86,7 @@ func (g *GitCommands) Pull(options PullOptions) (string, error) {
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to pull: %v", err)
+		return string(output), err
 	}
 
 	return string(output), nil
@@ -127,7 +127,7 @@ func (g *GitCommands) Push(options PushOptions) (string, error) {
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to push: %v", err)
+		return string(output), err
 	}
 
 	return string(output), nil

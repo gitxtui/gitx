@@ -14,7 +14,7 @@ func (g *GitCommands) AddFiles(paths []string) (string, string, error) {
 
 	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), cmdStr, fmt.Errorf("failed to add files: %v", err)
+		return string(output), cmdStr, err
 	}
 
 	return string(output), cmdStr, nil
@@ -30,7 +30,7 @@ func (g *GitCommands) ResetFiles(paths []string) (string, string, error) {
 
 	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), cmdStr, fmt.Errorf("failed to unstage files: %v", err)
+		return string(output), cmdStr, err
 	}
 
 	return string(output), cmdStr, nil
@@ -52,7 +52,7 @@ func (g *GitCommands) RemoveFiles(paths []string, cached bool) (string, error) {
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to remove files: %v", err)
+		return string(output), err
 	}
 
 	return string(output), nil
@@ -68,7 +68,7 @@ func (g *GitCommands) MoveFile(source, destination string) (string, error) {
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to move file: %v", err)
+		return string(output), err
 	}
 
 	return string(output), nil
@@ -106,7 +106,7 @@ func (g *GitCommands) Restore(options RestoreOptions) (string, string, error) {
 
 	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), cmdStr, fmt.Errorf("failed to restore files: %v", err)
+		return string(output), cmdStr, err
 	}
 
 	return string(output), cmdStr, nil
@@ -122,7 +122,7 @@ func (g *GitCommands) Revert(commitHash string) (string, string, error) {
 
 	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), cmdStr, fmt.Errorf("failed to revert commit: %v", err)
+		return string(output), cmdStr, err
 	}
 
 	return string(output), cmdStr, nil
@@ -138,7 +138,7 @@ func (g *GitCommands) ResetToCommit(commitHash string) (string, string, error) {
 
 	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), cmdStr, fmt.Errorf("failed to reset to commit: %v", err)
+		return string(output), cmdStr, err
 	}
 
 	return string(output), cmdStr, nil

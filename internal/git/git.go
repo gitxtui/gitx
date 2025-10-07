@@ -1,6 +1,8 @@
 package git
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"os/exec"
 	"strings"
@@ -31,7 +33,21 @@ func (g *GitCommands) executeCommand(args ...string) (string, string, error) {
 
 	if err != nil {
 		log.Printf("Error: %v, Output: %s", err, string(output))
-		return string(output), cmdStr, err
+
+		var exitErr *exec.ExitError
+		exitCode := 0
+
+		if errors.As(err, &exitErr) {
+			exitCode = exitErr.ExitCode()
+		}
+
+		gitMsg := strings.TrimSpace(string(output))
+		gitMsg = strings.TrimPrefix(gitMsg, "fatal: ")
+		gitMsg = strings.TrimPrefix(gitMsg, "error: ")
+
+		detailedError := fmt.Errorf("[ERROR - %d] %s", exitCode, gitMsg)
+
+		return "", cmdStr, detailedError
 	}
 
 	return string(output), cmdStr, nil

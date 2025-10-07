@@ -114,7 +114,7 @@ func (g *GitCommands) ManageBranch(options BranchOptions) (string, string, error
 
 	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), cmdStr, fmt.Errorf("branch operation failed: %v", err)
+		return string(output), cmdStr, err
 	}
 
 	return string(output), cmdStr, nil
@@ -129,7 +129,7 @@ func (g *GitCommands) Checkout(branchName string) (string, string, error) {
 
 	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), cmdStr, fmt.Errorf("failed to checkout branch: %v", err)
+		return string(output), cmdStr, err
 	}
 
 	return string(output), cmdStr, nil
@@ -144,7 +144,7 @@ func (g *GitCommands) Switch(branchName string) (string, string, error) {
 
 	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), "", fmt.Errorf("failed to switch branch: %v", err)
+		return string(output), "", err
 	}
 
 	return string(output), cmdStr, nil
@@ -159,7 +159,7 @@ func (g *GitCommands) RenameBranch(oldName, newName string) (string, string, err
 
 	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), cmdStr, fmt.Errorf("failed to rename branch: %v", err)
+		return string(output), cmdStr, err
 	}
 
 	return string(output), cmdStr, nil

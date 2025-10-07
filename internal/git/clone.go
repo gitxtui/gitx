@@ -17,7 +17,7 @@ func (g *GitCommands) CloneRepository(repoURL, directory string) (string, error)
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to clone repository: %v", err)
+		return string(output), err
 	}
 
 	return fmt.Sprintf("Successfully cloned repository: %s", repoURL), nil

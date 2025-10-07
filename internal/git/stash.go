@@ -101,7 +101,7 @@ func (g *GitCommands) Stash(options StashOptions) (string, string, error) {
 		if strings.Contains(string(output), "No stash entries found") || strings.Contains(string(output), "No stash found") {
 			return "No stashes found.", cmdStr, nil
 		}
-		return string(output), cmdStr, fmt.Errorf("stash operation failed: %v", err)
+		return string(output), cmdStr, err
 	}
 
 	return string(output), cmdStr, nil
@@ -113,7 +113,7 @@ func (g *GitCommands) StashAll() (string, string, error) {
 
 	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), cmdStr, fmt.Errorf("failed to stash all changes: %v", err)
+		return string(output), cmdStr, err
 	}
 	return string(output), cmdStr, nil
 }
