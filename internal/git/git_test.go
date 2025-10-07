@@ -206,7 +206,7 @@ func TestGitCommands_BranchAndCheckout(t *testing.T) {
 	}
 
 	// Switch back to main/master
-	if _, err := g.Switch("master"); err != nil {
+	if _, _, err := g.Switch("master"); err != nil {
 		t.Fatalf("Switch() failed: %v", err)
 	}
 

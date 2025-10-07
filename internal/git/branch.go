@@ -101,15 +101,15 @@ func (g *GitCommands) ManageBranch(options BranchOptions) (string, string, error
 	args := []string{"branch"}
 
 	if options.Delete {
+		args = append(args, "-d", options.Name)
 		if options.Name == "" {
 			return "", "", fmt.Errorf("branch name is required for deletion")
 		}
-		args = append(args, "-d", options.Name)
 	} else if options.Create {
+		args = append(args, options.Name)
 		if options.Name == "" {
 			return "", "", fmt.Errorf("branch name is required for creation")
 		}
-		args = append(args, options.Name)
 	}
 
 	output, cmdStr, err := g.executeCommand(args...)
@@ -136,18 +136,18 @@ func (g *GitCommands) Checkout(branchName string) (string, string, error) {
 }
 
 // Switch switches to a specified branch.
-func (g *GitCommands) Switch(branchName string) (string, error) {
+func (g *GitCommands) Switch(branchName string) (string, string, error) {
 	if branchName == "" {
-		return "", fmt.Errorf("branch name is required")
+		return "", "", fmt.Errorf("branch name is required")
 	}
 	args := []string{"switch", branchName}
 
-	output, _, err := g.executeCommand(args...)
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to switch branch: %v", err)
+		return string(output), "", fmt.Errorf("failed to switch branch: %v", err)
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }
 
 // RenameBranch renames a branch.
