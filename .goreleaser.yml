@@ -35,9 +35,9 @@ archives:
   - # Format for the archive (tar.gz for Unix-like systems, zip for Windows).
     format: tar.gz
     # This template creates archives with platform-specific naming conventions
-    # Examples: "gitx_1.0.0_Linux_x86_64.tar.gz", "gitx_1.0.0_Darwin_arm64.tar.gz"
+    # Examples: "gitx_Linux_x86_64.tar.gz", "gitx_Darwin_arm64.tar.gz"
     name_template: >-
-      {{ .ProjectName }}_{{ .Version }}_
+      {{ .ProjectName }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
