@@ -7,11 +7,17 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/gitxtui/gitx/internal/git"
 	zone "github.com/lrstanley/bubblezone"
 )
 
 var keys = DefaultKeyMap()
+
+// commandExecutedMsg is sent after a git command has been run successfully.
+type commandExecutedMsg struct {
+	cmdStr string
+}
 
 // panelContentUpdatedMsg is sent when new content for a panel has been fetched.
 type panelContentUpdatedMsg struct {
@@ -55,10 +61,46 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	oldFocus := m.focusedPanel
 
 	switch msg := msg.(type) {
+
+	case commandExecutedMsg:
+		// A command was successful, add it to our history.
+		m.CommandHistory = append([]string{msg.cmdStr}, m.CommandHistory...)
+		// Update the history viewport content.
+		historyContent := strings.Join(m.CommandHistory, "\n\n")
+		m.panels[SecondaryPanel].content = historyContent
+		m.panels[SecondaryPanel].viewport.SetContent(historyContent)
+		m.panels[SecondaryPanel].viewport.GotoTop()
+
+		// Trigger a refresh of all
+		// relevant panels from this central location.
+		return m, tea.Batch(
+			m.fetchPanelContent(FilesPanel),
+			m.fetchPanelContent(CommitsPanel),
+			m.fetchPanelContent(BranchesPanel),
+			m.fetchPanelContent(StatusPanel),
+		)
+
 	case errMsg:
 		// You can improve this to show errors in the UI
 		log.Printf("error: %v", msg)
-		return m, nil
+
+		errorLine := m.theme.ErrorText.Render(msg.Error())
+		m.CommandHistory = append([]string{errorLine}, m.CommandHistory...)
+
+		// Update the history panel's content and scroll to the new error.
+		rawHistoryContent := strings.Join(m.CommandHistory, "\n\n")
+		contentWidth := m.panels[SecondaryPanel].viewport.Width
+		wrappedContent := lipgloss.NewStyle().Width(contentWidth).Render(rawHistoryContent)
+
+		m.panels[SecondaryPanel].content = wrappedContent
+		m.panels[SecondaryPanel].viewport.SetContent(wrappedContent)
+		m.panels[SecondaryPanel].viewport.GotoTop()
+		return m, tea.Batch(
+			m.fetchPanelContent(FilesPanel),
+			m.fetchPanelContent(CommitsPanel),
+			m.fetchPanelContent(BranchesPanel),
+			m.fetchPanelContent(StatusPanel),
+		)
 
 	case mainContentUpdatedMsg:
 		m.panels[MainPanel].content = msg.content
@@ -365,12 +407,12 @@ func (m Model) fetchPanelContent(panel Panel) tea.Cmd {
 				}
 			}
 		case SecondaryPanel:
-			url := m.theme.Hyperlink.Render(githubMainPage)
-			content = strings.Join([]string{
-				"\t--- Feature in development! ---",
-				"\n\t* This panel will contain all the command logs and history for of TUI app.",
-				fmt.Sprintf("\t* visit for more details: %s.", url),
-			}, "\n")
+			if len(m.CommandHistory) == 0 {
+				content = "Command history will appear here..."
+			} else {
+				content = strings.Join(m.CommandHistory, "\n")
+			}
+			err = nil // Set err to nil as there's no operation that can fail here.
 		}
 
 		if err != nil {
@@ -446,7 +488,7 @@ func (m *Model) updateMainPanel() tea.Cmd {
 				parts := strings.SplitN(line, "\t", 2)
 				if len(parts) > 0 {
 					stashID := parts[0]
-					content, err = m.git.Stash(git.StashOptions{Show: true, StashID: stashID})
+					content, _, err = m.git.Stash(git.StashOptions{Show: true, StashID: stashID})
 				}
 			}
 		}
@@ -606,39 +648,44 @@ func (m *Model) handleFilesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 				if description != "" {
 					commitMsg = title + "\n\n" + description
 				}
-				_, err := m.git.Commit(git.CommitOptions{Message: commitMsg})
+				_, cmdStr, err := m.git.Commit(git.CommitOptions{Message: commitMsg})
 				if err != nil {
 					return errMsg{err}
 				}
-				return tea.Batch(
-					m.fetchPanelContent(FilesPanel),
-					m.fetchPanelContent(CommitsPanel),
-					m.fetchPanelContent(SecondaryPanel),
-				)
+				return commandExecutedMsg{cmdStr}
 			}
 		}
 
 	case key.Matches(msg, keys.StageItem):
-		// If the item is unstaged, stage it, and vice-versa.
-		if status[0] == ' ' || status[0] == '?' {
-			_, err := m.git.AddFiles([]string{filePath})
-			if err != nil {
-				return func() tea.Msg { return errMsg{err} }
-			}
-		} else {
-			_, err := m.git.ResetFiles([]string{filePath})
-			if err != nil {
-				return func() tea.Msg { return errMsg{err} }
-			}
-		}
-		return m.fetchPanelContent(FilesPanel)
+		return tea.Batch(
+			func() tea.Msg {
+				var cmdStr string
+				var err error
+				if status[0] == ' ' || status[0] == '?' {
+					_, cmdStr, err = m.git.AddFiles([]string{filePath})
+				} else {
+					_, cmdStr, err = m.git.ResetFiles([]string{filePath})
+				}
+				if err != nil {
+					return errMsg{err}
+				}
+				return commandExecutedMsg{cmdStr}
+			},
+			m.fetchPanelContent(FilesPanel),
+			m.fetchPanelContent(StatusPanel),
+		)
 
 	case key.Matches(msg, keys.StageAll):
-		_, err := m.git.AddFiles([]string{"."})
-		if err != nil {
-			return func() tea.Msg { return errMsg{err} }
-		}
-		return m.fetchPanelContent(FilesPanel)
+		return tea.Batch(
+			func() tea.Msg {
+				_, cmdStr, err := m.git.AddFiles([]string{"."})
+				if err != nil {
+					return errMsg{err}
+				}
+				return commandExecutedMsg{cmdStr}
+			},
+			m.fetchPanelContent(FilesPanel),
+		)
 
 	case key.Matches(msg, keys.Discard):
 		m.mode = modeConfirm
@@ -649,23 +696,26 @@ func (m *Model) handleFilesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 				return nil
 			}
 			return func() tea.Msg {
-				_, err := m.git.Restore(git.RestoreOptions{
+				_, cmdStr, err := m.git.Restore(git.RestoreOptions{
 					Paths:      []string{filePath},
 					WorkingDir: true,
 				})
 				if err != nil {
 					return errMsg{err}
 				}
-				return m.fetchPanelContent(FilesPanel)
+				return commandExecutedMsg{cmdStr}
 			}
 		}
 
 	case key.Matches(msg, keys.StashAll):
-		_, err := m.git.StashAll()
-		if err != nil {
-			return func() tea.Msg { return errMsg{err} }
-		}
 		return tea.Batch(
+			func() tea.Msg {
+				_, cmdStr, err := m.git.StashAll()
+				if err != nil {
+					return errMsg{err}
+				}
+				return commandExecutedMsg{cmdStr}
+			},
 			m.fetchPanelContent(FilesPanel),
 			m.fetchPanelContent(StashPanel),
 		)
@@ -690,11 +740,14 @@ func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 
 	switch {
 	case key.Matches(msg, keys.Checkout):
-		_, err := m.git.Checkout(branchName)
-		if err != nil {
-			return func() tea.Msg { return errMsg{err} }
-		}
 		return tea.Batch(
+			func() tea.Msg {
+				_, cmdStr, err := m.git.Checkout(branchName)
+				if err != nil {
+					return errMsg{err}
+				}
+				return commandExecutedMsg{cmdStr}
+			},
 			m.fetchPanelContent(StatusPanel),
 			m.fetchPanelContent(BranchesPanel),
 			m.fetchPanelContent(CommitsPanel),
@@ -710,23 +763,22 @@ func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			if input == "" {
 				return nil
 			}
-			return func() tea.Msg {
-				// Create the new branch
-				_, err := m.git.ManageBranch(git.BranchOptions{Create: true, Name: input})
-				if err != nil {
-					return errMsg{err}
-				}
-				// checkout to the new branch
-				_, err = m.git.Checkout(input)
-				if err != nil {
-					return errMsg{err}
-				}
-				return tea.Batch(
-					m.fetchPanelContent(BranchesPanel),
-					m.fetchPanelContent(StatusPanel),
-					m.fetchPanelContent(CommitsPanel),
-				)
-			}
+			return tea.Sequence(
+				func() tea.Msg {
+					_, cmdStr, err := m.git.ManageBranch(git.BranchOptions{Create: true, Name: input})
+					if err != nil {
+						return errMsg{err}
+					}
+					return commandExecutedMsg{cmdStr}
+				},
+				func() tea.Msg {
+					_, cmdStr, err := m.git.Checkout(input)
+					if err != nil {
+						return errMsg{err}
+					}
+					return commandExecutedMsg{cmdStr}
+				},
+			)
 		}
 
 	case key.Matches(msg, keys.DeleteBranch):
@@ -738,11 +790,11 @@ func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 				return nil
 			}
 			return func() tea.Msg {
-				_, err := m.git.ManageBranch(git.BranchOptions{Delete: true, Name: branchName})
+				_, cmdStr, err := m.git.ManageBranch(git.BranchOptions{Delete: true, Name: branchName})
 				if err != nil {
 					return errMsg{err}
 				}
-				return m.fetchPanelContent(BranchesPanel)
+				return commandExecutedMsg{cmdStr}
 			}
 		}
 
@@ -757,14 +809,11 @@ func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 				return nil
 			}
 			return func() tea.Msg {
-				_, err := m.git.RenameBranch(branchName, input)
+				_, cmdStr, err := m.git.RenameBranch(branchName, input)
 				if err != nil {
 					return errMsg{err}
 				}
-				return tea.Batch(
-					m.fetchPanelContent(BranchesPanel),
-					m.fetchPanelContent(StatusPanel),
-				)
+				return commandExecutedMsg{cmdStr}
 			}
 		}
 	}
@@ -798,15 +847,11 @@ func (m *Model) handleCommitsPanelKeys(msg tea.KeyMsg) tea.Cmd {
 				if description != "" {
 					commitMsg = title + "\n\n" + description
 				}
-				_, err := m.git.Commit(git.CommitOptions{Message: commitMsg, Amend: true})
+				_, cmdStr, err := m.git.Commit(git.CommitOptions{Message: commitMsg, Amend: true})
 				if err != nil {
 					return errMsg{err}
 				}
-				return tea.Batch(
-					m.fetchPanelContent(CommitsPanel),
-					m.fetchPanelContent(FilesPanel),
-					m.fetchPanelContent(SecondaryPanel),
-				)
+				return commandExecutedMsg{cmdStr}
 			}
 		}
 
@@ -819,14 +864,11 @@ func (m *Model) handleCommitsPanelKeys(msg tea.KeyMsg) tea.Cmd {
 				return nil
 			}
 			return func() tea.Msg {
-				_, err := m.git.Revert(sha)
+				_, cmdStr, err := m.git.Revert(sha)
 				if err != nil {
 					return errMsg{err}
 				}
-				return tea.Batch(
-					m.fetchPanelContent(CommitsPanel),
-					m.fetchPanelContent(FilesPanel),
-				)
+				return commandExecutedMsg{cmdStr}
 			}
 		}
 
@@ -839,15 +881,11 @@ func (m *Model) handleCommitsPanelKeys(msg tea.KeyMsg) tea.Cmd {
 				return nil
 			}
 			return func() tea.Msg {
-				_, err := m.git.ResetToCommit(sha)
+				_, cmdStr, err := m.git.ResetToCommit(sha)
 				if err != nil {
 					return errMsg{err}
 				}
-				return tea.Batch(
-					m.fetchPanelContent(CommitsPanel),
-					m.fetchPanelContent(FilesPanel),
-					m.fetchPanelContent(StatusPanel),
-				)
+				return commandExecutedMsg{cmdStr}
 			}
 		}
 	}
@@ -871,21 +909,27 @@ func (m *Model) handleStashPanelKeys(msg tea.KeyMsg) tea.Cmd {
 
 	switch {
 	case key.Matches(msg, keys.StashApply):
-		_, err := m.git.Stash(git.StashOptions{Apply: true, StashID: stashID})
-		if err != nil {
-			return func() tea.Msg { return errMsg{err} }
-		}
 		return tea.Batch(
+			func() tea.Msg {
+				_, cmdStr, err := m.git.Stash(git.StashOptions{Apply: true, StashID: stashID})
+				if err != nil {
+					return errMsg{err}
+				}
+				return commandExecutedMsg{cmdStr}
+			},
 			m.fetchPanelContent(FilesPanel),
 			m.fetchPanelContent(StashPanel),
 		)
 
 	case key.Matches(msg, keys.StashPop):
-		_, err := m.git.Stash(git.StashOptions{Pop: true, StashID: stashID})
-		if err != nil {
-			return func() tea.Msg { return errMsg{err} }
-		}
 		return tea.Batch(
+			func() tea.Msg {
+				_, cmdStr, err := m.git.Stash(git.StashOptions{Pop: true, StashID: stashID})
+				if err != nil {
+					return errMsg{err}
+				}
+				return commandExecutedMsg{cmdStr}
+			},
 			m.fetchPanelContent(FilesPanel),
 			m.fetchPanelContent(StashPanel),
 		)
@@ -899,7 +943,7 @@ func (m *Model) handleStashPanelKeys(msg tea.KeyMsg) tea.Cmd {
 				return nil
 			}
 			return func() tea.Msg {
-				_, err := m.git.Stash(git.StashOptions{Drop: true, StashID: stashID})
+				_, cmdStr, err := m.git.Stash(git.StashOptions{Drop: true, StashID: stashID})
 				if err != nil {
 					return errMsg{err}
 				}
@@ -907,7 +951,7 @@ func (m *Model) handleStashPanelKeys(msg tea.KeyMsg) tea.Cmd {
 				if m.panels[StashPanel].cursor >= len(m.panels[StashPanel].lines)-1 && m.panels[StashPanel].cursor > 0 {
 					m.panels[StashPanel].cursor--
 				}
-				return m.fetchPanelContent(StashPanel)
+				return commandExecutedMsg{cmdStr}
 			}
 		}
 	}

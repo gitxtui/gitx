@@ -18,8 +18,7 @@ func (g *GitCommands) GetBranches() ([]*Branch, error) {
 	format := "%(committerdate:relative)\t%(refname:short)\t%(HEAD)"
 	args := []string{"for-each-ref", "--sort=-committerdate", "refs/heads/", fmt.Sprintf("--format=%s", format)}
 
-	cmd := ExecCommand("git", args...)
-	output, err := cmd.CombinedOutput()
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return nil, err
 	}
@@ -98,71 +97,70 @@ type BranchOptions struct {
 }
 
 // ManageBranch creates or deletes branches.
-func (g *GitCommands) ManageBranch(options BranchOptions) (string, error) {
+func (g *GitCommands) ManageBranch(options BranchOptions) (string, string, error) {
 	args := []string{"branch"}
 
 	if options.Delete {
-		if options.Name == "" {
-			return "", fmt.Errorf("branch name is required for deletion")
-		}
 		args = append(args, "-d", options.Name)
-	} else if options.Create {
 		if options.Name == "" {
-			return "", fmt.Errorf("branch name is required for creation")
+			return "", "", fmt.Errorf("branch name is required for deletion")
 		}
+	} else if options.Create {
 		args = append(args, options.Name)
+		if options.Name == "" {
+			return "", "", fmt.Errorf("branch name is required for creation")
+		}
 	}
 
-	cmd := ExecCommand("git", args...)
-	output, err := cmd.CombinedOutput()
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("branch operation failed: %v", err)
+		return string(output), cmdStr, err
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }
 
 // Checkout switches branches or restores working tree files.
-func (g *GitCommands) Checkout(branchName string) (string, error) {
+func (g *GitCommands) Checkout(branchName string) (string, string, error) {
 	if branchName == "" {
-		return "", fmt.Errorf("branch name is required")
+		return "", "", fmt.Errorf("branch name is required")
 	}
+	args := []string{"checkout", branchName}
 
-	cmd := ExecCommand("git", "checkout", branchName)
-	output, err := cmd.CombinedOutput()
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to checkout branch: %v", err)
+		return string(output), cmdStr, err
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }
 
 // Switch switches to a specified branch.
-func (g *GitCommands) Switch(branchName string) (string, error) {
+func (g *GitCommands) Switch(branchName string) (string, string, error) {
 	if branchName == "" {
-		return "", fmt.Errorf("branch name is required")
+		return "", "", fmt.Errorf("branch name is required")
 	}
+	args := []string{"switch", branchName}
 
-	cmd := ExecCommand("git", "switch", branchName)
-	output, err := cmd.CombinedOutput()
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to switch branch: %v", err)
+		return string(output), "", err
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }
 
 // RenameBranch renames a branch.
-func (g *GitCommands) RenameBranch(oldName, newName string) (string, error) {
+func (g *GitCommands) RenameBranch(oldName, newName string) (string, string, error) {
 	if oldName == "" || newName == "" {
-		return "", fmt.Errorf("both old and new branch names are required")
+		return "", "", fmt.Errorf("both old and new branch names are required")
 	}
+	args := []string{"branch", "-m", oldName, newName}
 
-	cmd := ExecCommand("git", "branch", "-m", oldName, newName)
-	output, err := cmd.CombinedOutput()
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to rename branch: %v", err)
+		return string(output), cmdStr, err
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }

@@ -10,11 +10,11 @@ func (g *GitCommands) InitRepository(path string) (string, error) {
 	if path == "" {
 		path = "."
 	}
+	args := []string{"init", path}
 
-	cmd := ExecCommand("git", "init", path)
-	output, err := cmd.CombinedOutput()
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to initialize repository: %v", err)
+		return string(output), err
 	}
 
 	absPath, _ := filepath.Abs(path)

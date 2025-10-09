@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
@@ -20,8 +19,9 @@ func (g *GitCommands) GetStashes() ([]*Stash, error) {
 	// Message: WIP on master: 52f3a6b feat: add panels
 	// We use a unique delimiter to reliably parse the multi-line output for each stash.
 	format := "%gD%n%gs"
-	cmd := ExecCommand("git", "stash", "list", fmt.Sprintf("--format=%s", format))
-	output, err := cmd.CombinedOutput()
+	args := []string{"stash", "list", fmt.Sprintf("--format=%s", format)}
+
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ type StashOptions struct {
 }
 
 // Stash saves your local modifications away and reverts the working directory to match the HEAD commit.
-func (g *GitCommands) Stash(options StashOptions) (string, error) {
+func (g *GitCommands) Stash(options StashOptions) (string, string, error) {
 	if !options.Push && !options.Pop && !options.Apply && !options.List && !options.Show && !options.Drop {
 		options.Push = true
 	}
@@ -95,25 +95,25 @@ func (g *GitCommands) Stash(options StashOptions) (string, error) {
 		}
 	}
 
-	cmd := exec.Command("git", args...)
-	output, err := cmd.CombinedOutput()
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
 		// The command fails if there's no stash.
 		if strings.Contains(string(output), "No stash entries found") || strings.Contains(string(output), "No stash found") {
-			return "No stashes found.", nil
+			return "No stashes found.", cmdStr, nil
 		}
-		return string(output), fmt.Errorf("stash operation failed: %v", err)
+		return string(output), cmdStr, err
 	}
 
-	return string(output), nil
+	return string(output), cmdStr, nil
 }
 
 // StashAll stashes all changes, including untracked files.
-func (g *GitCommands) StashAll() (string, error) {
-	cmd := exec.Command("git", "stash", "push", "-u", "-m", "gitx auto stash")
-	output, err := cmd.CombinedOutput()
+func (g *GitCommands) StashAll() (string, string, error) {
+	args := []string{"stash", "push", "-u", "-m", "gitx auto stash"}
+
+	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to stash all changes: %v", err)
+		return string(output), cmdStr, err
 	}
-	return string(output), nil
+	return string(output), cmdStr, nil
 }

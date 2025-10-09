@@ -3,13 +3,13 @@ package main
 import (
 	"errors"
 	"fmt"
+	tea "github.com/charmbracelet/bubbletea"
+	gitxlog "github.com/gitxtui/gitx/internal/log"
+	"github.com/gitxtui/gitx/internal/tui"
+	zone "github.com/lrstanley/bubblezone"
 	"log"
 	"os"
 	"os/exec"
-
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/gitxtui/gitx/internal/tui"
-	zone "github.com/lrstanley/bubblezone"
 )
 
 var version = "dev"
@@ -27,6 +27,16 @@ func printHelp() {
 }
 
 func main() {
+	logFile, err := gitxlog.SetupLogger()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to set up logger: %v\n", err)
+	}
+	defer func() {
+		if err := logFile.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to close log file: %v\n", err)
+		}
+	}()
+
 	if err := ensureGitRepo(); err != nil {
 		fmt.Fprintln(os.Stderr, err) // print to stderr
 		os.Exit(1)

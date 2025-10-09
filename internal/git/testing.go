@@ -50,10 +50,10 @@ func setupTestRepo(t *testing.T) (string, func()) {
 	if err := os.WriteFile("initial.txt", []byte("initial content"), 0644); err != nil {
 		t.Fatalf("failed to create initial file: %v", err)
 	}
-	if _, err := g.AddFiles([]string{"initial.txt"}); err != nil {
+	if _, _, err := g.AddFiles([]string{"initial.txt"}); err != nil {
 		t.Fatalf("failed to add initial file: %v", err)
 	}
-	if _, err := g.Commit(CommitOptions{Message: "Initial commit"}); err != nil {
+	if _, _, err := g.Commit(CommitOptions{Message: "Initial commit"}); err != nil {
 		t.Fatalf("failed to create initial commit: %v", err)
 	}
 
@@ -123,10 +123,10 @@ func createAndCommitFile(t *testing.T, g *GitCommands, filename, content, messag
 	if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
 		t.Fatalf("failed to create test file %s: %v", filename, err)
 	}
-	if _, err := g.AddFiles([]string{filename}); err != nil {
+	if _, _, err := g.AddFiles([]string{filename}); err != nil {
 		t.Fatalf("failed to add file %s: %v", filename, err)
 	}
-	if _, err := g.Commit(CommitOptions{Message: message}); err != nil {
+	if _, _, err := g.Commit(CommitOptions{Message: message}); err != nil {
 		t.Fatalf("failed to commit file %s: %v", filename, err)
 	}
 }

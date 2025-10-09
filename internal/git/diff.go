@@ -1,10 +1,5 @@
 package git
 
-import (
-	"fmt"
-	"os/exec"
-)
-
 // DiffOptions specifies the options for the git diff command.
 type DiffOptions struct {
 	Commit1 string
@@ -39,10 +34,9 @@ func (g *GitCommands) ShowDiff(options DiffOptions) (string, error) {
 		args = append(args, options.Commit2)
 	}
 
-	cmd := exec.Command("git", args...)
-	output, err := cmd.CombinedOutput()
+	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), fmt.Errorf("failed to get diff: %v", err)
+		return string(output), err
 	}
 
 	return string(output), nil

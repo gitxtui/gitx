@@ -47,6 +47,8 @@ type Model struct {
 	inputCallback    func(string) tea.Cmd
 	commitCallback   func(title, description string) tea.Cmd
 	confirmCallback  func(bool) tea.Cmd
+	// New fields for command history
+	CommandHistory []string
 }
 
 // initialModel creates the initial state of the application.
@@ -93,6 +95,9 @@ func initialModel() Model {
 	ta.SetWidth(80)
 	ta.SetHeight(5)
 
+	historyVP := viewport.New(0, 0)
+	historyVP.SetContent("Command history will appear here...")
+
 	return Model{
 		theme:             Themes[selectedThemeName],
 		themeNames:        themeNames,
@@ -109,6 +114,7 @@ func initialModel() Model {
 		mode:              modeNormal,
 		textInput:         ti,
 		descriptionInput:  ta,
+		CommandHistory:    []string{},
 	}
 }
 
