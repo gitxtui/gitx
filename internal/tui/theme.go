@@ -243,10 +243,7 @@ func ThemeNames() []string {
 }
 
 func load_config() (*themeConfig, error){
-	cfgPath := filepath.Join(os.Getenv("HOME"), ".config", "gitx", "config.toml")
-	if _,err := os.Stat(cfgPath); os.IsNotExist(err) {
-		return &themeConfig{Theme: DefaultThemeName}, nil //fallback
-	}
+	cfgPath := ConfigFilePath
 
 	var cfg themeConfig
 	if _, err := toml.DecodeFile(cfgPath, &cfg); err != nil {
@@ -257,7 +254,7 @@ func load_config() (*themeConfig, error){
 }
 
 func load_custom_theme(name string) (*Palette, error){
-	themePath := filepath.Join(os.Getenv("HOME"), ".config", "gitx", "themes", name+".toml")
+	themePath := filepath.Join(ConfigThemesDirPath, name + ".toml")
 	if _,err := os.Stat(themePath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("theme not found: %s", name)
 	}
