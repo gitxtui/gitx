@@ -4,7 +4,18 @@ import (
 	"sort"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"os"
+
+	"path/filepath"
+
+	"github.com/BurntSushi/toml"
+
+	"fmt"
 )
+
+// DefaultThemeName is the name of the default theme.
+const DefaultThemeName = "GitHub Dark"
 
 // Palette defines a set of colors for a theme.
 type Palette struct {
@@ -139,6 +150,20 @@ type TreeStyle struct {
 	Connector, ConnectorLast, Prefix, PrefixLast string
 }
 
+//config.toml
+type themeConfig struct{
+	Theme string `toml:"theme"` 
+}
+
+// custom_theme.toml
+type ThemeFile struct{
+	Fg	string	`toml:"fg"`
+	Bg	string	`toml:"bg"`
+	Normal map[string]string `toml:"normal"`
+	Bright map[string]string `toml:"bright"`
+	Dark map[string]string `toml:"dark"`
+}
+
 // Themes holds all the available themes, generated from palettes.
 var Themes = map[string]Theme{}
 
@@ -215,4 +240,47 @@ func ThemeNames() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func load_config() (*themeConfig, error){
+	cfgPath := ConfigFilePath
+
+	var cfg themeConfig
+	if _, err := toml.DecodeFile(cfgPath, &cfg); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
+
+func load_custom_theme(name string) (*Palette, error){
+	themePath := filepath.Join(ConfigThemesDirPath, name + ".toml")
+	if _,err := os.Stat(themePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("theme not found: %s", name)
+	}
+	
+	var tf ThemeFile
+	if _, err := toml.DecodeFile(themePath, &tf); err != nil {
+		return nil, err
+	}
+
+	// Create a Palette from the ThemeFile
+	p := Palette{
+		Fg: tf.Fg,
+		Bg: tf.Bg,
+		Black: tf.Normal["Black"], Red: tf.Normal["Red"], Green: tf.Normal["Green"], Yellow: tf.Normal["Yellow"],
+        Blue: tf.Normal["Blue"], Magenta: tf.Normal["Magenta"], Cyan: tf.Normal["Cyan"], White: tf.Normal["White"],
+
+        BrightBlack: tf.Bright["Black"], BrightRed: tf.Bright["Red"], BrightGreen: tf.Bright["Green"], BrightYellow: tf.Bright["Yellow"],
+        BrightBlue: tf.Bright["Blue"], BrightMagenta: tf.Bright["Magenta"], BrightCyan: tf.Bright["Cyan"], BrightWhite: tf.Bright["White"],
+
+        DarkBlack: tf.Dark["Black"], DarkRed: tf.Dark["Red"], DarkGreen: tf.Dark["Green"], DarkYellow: tf.Dark["Yellow"],
+        DarkBlue: tf.Dark["Blue"], DarkMagenta: tf.Dark["Magenta"], DarkCyan: tf.Dark["Cyan"], DarkWhite: tf.Dark["White"],
+
+	}
+
+	Palettes[name] = p // Add to Palettes map for future use
+	Themes[name] = NewThemeFromPalette(p) // Add to Themes map
+
+	return &p, nil
 }
