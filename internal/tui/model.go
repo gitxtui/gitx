@@ -69,8 +69,6 @@ func initialModel() Model {
 
 	themeNames = ThemeNames() // reload
 
-	// fmt.Println("All themes:", themeNames)
-
 	gc := git.NewGitCommands()
 	repoName, branchName, _ := gc.GetRepoInfo()
 	initialContent := initialContentLoading

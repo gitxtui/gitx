@@ -34,20 +34,15 @@ func initializeConfig() error {
 		return fmt.Errorf("error creating themes directory: %w", err)
 	}
 
-	_, err = os.Stat(ConfigFilePath)
-	if err == nil {
-		// File exists
-		// fmt.Println("Config file exists:", ConfigFilePath)
-	} else if os.IsNotExist(err) {
-    	// File does not exist
-		defaultConfigContent := fmt.Sprintf("Theme = \"%s\"\n", DefaultThemeName)
-    	err = os.WriteFile(ConfigFilePath, []byte(defaultConfigContent), 0644)
-		if err != nil {
-			return fmt.Errorf("error creating default config file: %w", err)
+	if _, err := os.Stat(ConfigFilePath); err != nil {
+		if os.IsNotExist(err) {
+			defaultConfig := fmt.Sprintf("Theme = %q\n", DefaultThemeName)
+			if writeErr := os.WriteFile(ConfigFilePath, []byte(defaultConfig), 0644); writeErr != nil {
+				return fmt.Errorf("failed to create default config file: %w", writeErr)
+			}
+		} else {
+			return fmt.Errorf("failed to check config file: %w", err)
 		}
-	} else {
-		// Some other error
-		return fmt.Errorf("error checking config file: %w", err)
 	}
 
 	return nil
