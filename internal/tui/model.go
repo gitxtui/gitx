@@ -53,7 +53,24 @@ type Model struct {
 
 // initialModel creates the initial state of the application.
 func initialModel() Model {
-	themeNames := ThemeNames()
+	themeNames := ThemeNames() //built-in themes load
+	cfg, _ := load_config()
+
+	var selectedThemeName string
+	if t, ok := Themes[cfg.Theme]; ok{
+		selectedThemeName = cfg.Theme
+		_ = t // to avoid unused variable warning
+	} else{
+		if _, err := load_custom_theme(cfg.Theme); err == nil{
+			selectedThemeName = cfg.Theme 
+		} else{
+			//fallback
+			selectedThemeName = themeNames[0]
+		}
+	}
+
+	themeNames = ThemeNames() // reload
+
 	gc := git.NewGitCommands()
 	repoName, branchName, _ := gc.GetRepoInfo()
 	initialContent := initialContentLoading
@@ -82,9 +99,9 @@ func initialModel() Model {
 	historyVP.SetContent("Command history will appear here...")
 
 	return Model{
-		theme:             Themes[themeNames[0]],
+		theme:             Themes[selectedThemeName],
 		themeNames:        themeNames,
-		themeIndex:        0,
+		themeIndex:        indexOf(themeNames, selectedThemeName),
 		focusedPanel:      StatusPanel,
 		activeSourcePanel: StatusPanel,
 		help:              help.New(),
@@ -99,6 +116,15 @@ func initialModel() Model {
 		descriptionInput:  ta,
 		CommandHistory:    []string{},
 	}
+}
+
+func indexOf(arr []string, val string) int{
+	for i, s := range arr{
+		if s == val{
+			return i
+		}
+	}
+	return 0
 }
 
 // Init is the first command that is run when the program starts.
