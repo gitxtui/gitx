@@ -11,6 +11,7 @@ import (
 	zone "github.com/lrstanley/bubblezone"
 )
 
+
 // ansiRegex is used to strip ANSI escape codes from strings.
 var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
@@ -106,10 +107,12 @@ func (m Model) renderMainView() string {
 	leftpanels := []Panel{StatusPanel, FilesPanel, BranchesPanel, CommitsPanel, StashPanel}
 	rightpanels := []Panel{MainPanel, SecondaryPanel}
 
+	
 	titles := map[Panel]string{
-		MainPanel: "Main", StatusPanel: "Status", FilesPanel: "Files",
-		BranchesPanel: "Branches", CommitsPanel: "Commits", StashPanel: "Stash", SecondaryPanel: "Command History",
+		MainPanel: panelZero, StatusPanel: panelOne, FilesPanel: panelTwo,
+		BranchesPanel: panelThree, CommitsPanel: panelFive, StashPanel: panelFive, SecondaryPanel: panelSix,
 	}
+	
 
 	leftColumn := m.renderPanelColumn(leftpanels, titles, leftSectionWidth)
 	rightColumn := m.renderPanelColumn(rightpanels, titles, rightSectionWidth)
