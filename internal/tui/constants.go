@@ -3,6 +3,17 @@ package tui
 import "time"
 
 const (
+	// --- Panel Names ---
+	panelZero  = "Main"
+	panelOne   = "Status"
+	panelTwo   = "Files"
+	panelThree = "Branches"
+	panelFour  = "Commits"
+	panelFive  = "Stash"
+	panelSix   = "Logs"
+)
+
+const (
 	// --- Layout Ratios ---
 	// leftPanelWidthRatio defines the percentage of the total width for the left column.
 	// rightPanelWidthRatio is "1 - leftPanelWidthRatio".
