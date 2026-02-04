@@ -408,3 +408,62 @@ func assertKeyBindingsEqual(t *testing.T, got, want []key.Binding) {
 		t.Errorf("\n\tgot \t%v\n\twant \t%v", got, want)
 	}
 }
+
+// TestInitRepositoryKeybinding tests that the InitRepository keybinding is properly configured
+func TestInitRepositoryKeybinding(t *testing.T) {
+	keymap := DefaultKeyMap()
+
+	if keymap.InitRepository.Help().Key == "" {
+		t.Error("InitRepository keybinding not configured")
+	}
+
+	if len(keymap.InitRepository.Help().Key) == 0 {
+		t.Error("InitRepository keybinding has no key")
+	}
+}
+
+// TestStatusPanelHelp tests that the StatusPanel help includes InitRepository keybinding
+func TestStatusPanelHelp(t *testing.T) {
+	keymap := DefaultKeyMap()
+	help := keymap.StatusPanelHelp()
+
+	if len(help) == 0 {
+		t.Error("StatusPanelHelp returned empty slice")
+	}
+
+	// Verify that InitRepository keybinding is in the help by checking the help text
+	found := false
+	for _, binding := range help {
+		if binding.Help().Desc == keymap.InitRepository.Help().Desc {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("InitRepository keybinding not found in StatusPanelHelp")
+	}
+}
+
+// TestPanelShortHelpForStatus tests that panelShortHelp returns StatusPanel help when focused
+func TestPanelShortHelpForStatus(t *testing.T) {
+	m := initialModel()
+	m.focusedPanel = StatusPanel
+
+	help := m.panelShortHelp()
+
+	if len(help) == 0 {
+		t.Error("panelShortHelp returned empty for StatusPanel")
+	}
+
+	// Verify InitRepository keybinding is present by checking the help description
+	found := false
+	for _, binding := range help {
+		if binding.Help().Desc == keys.InitRepository.Help().Desc {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("InitRepository keybinding not in StatusPanel short help")
+	}
+}

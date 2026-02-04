@@ -48,6 +48,9 @@ type KeyMap struct {
 	StashApply key.Binding
 	StashPop   key.Binding
 	StashDrop  key.Binding
+
+	// Keybindings for StatusPanel
+	InitRepository key.Binding
 }
 
 // HelpSection is a struct to hold a title and keybindings for a help section.
@@ -88,6 +91,10 @@ func (k KeyMap) FullHelp() []HelpSection {
 			Bindings: []key.Binding{k.StashApply, k.StashPop, k.StashDrop},
 		},
 		{
+			Title:    "Status",
+			Bindings: []key.Binding{k.InitRepository},
+		},
+		{
 			Title:    "Misc",
 			Bindings: []key.Binding{k.SwitchTheme, k.ToggleHelp, k.Escape, k.Quit},
 		},
@@ -125,6 +132,12 @@ func (k KeyMap) CommitsPanelHelp() []key.Binding {
 // StashPanelHelp returns a slice of key.Binding for the Stash Panel help bar.
 func (k KeyMap) StashPanelHelp() []key.Binding {
 	help := []key.Binding{k.StashApply, k.StashPop, k.StashDrop}
+	return append(help, k.ShortHelp()...)
+}
+
+// StatusPanelHelp returns a slice of key.Binding for the Status Panel help bar.
+func (k KeyMap) StatusPanelHelp() []key.Binding {
+	help := []key.Binding{k.InitRepository}
 	return append(help, k.ShortHelp()...)
 }
 
@@ -264,6 +277,11 @@ func DefaultKeyMap() KeyMap {
 		StashDrop: key.NewBinding(
 			key.WithKeys("d"),
 			key.WithHelp("d", "Drop"),
+		),
+
+		InitRepository: key.NewBinding(
+			key.WithKeys("i"),
+			key.WithHelp("i", "Initialize Repository"),
 		),
 	}
 }
