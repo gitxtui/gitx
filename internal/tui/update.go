@@ -586,8 +586,6 @@ func (m *Model) handlePanelKeys(msg tea.KeyMsg) tea.Cmd {
 		return m.handleCommitsPanelKeys(msg)
 	case StashPanel:
 		return m.handleStashPanelKeys(msg)
-	case StatusPanel:
-		return m.handleStatusPanelKeys(msg)
 	}
 	return nil
 }
@@ -954,33 +952,6 @@ func (m *Model) handleStashPanelKeys(msg tea.KeyMsg) tea.Cmd {
 					m.panels[StashPanel].cursor--
 				}
 				return commandExecutedMsg{cmdStr}
-			}
-		}
-	}
-	return nil
-}
-
-// handleStatusPanelKeys handles keybindings for the Status Panel.
-func (m *Model) handleStatusPanelKeys(msg tea.KeyMsg) tea.Cmd {
-	switch {
-	case key.Matches(msg, keys.InitRepository):
-		m.mode = modeInput
-		m.promptTitle = "Initialize Repository"
-		m.textInput.Placeholder = "Enter path (or . for current directory)"
-		m.textInput.Reset()
-		m.textInput.Focus()
-		m.inputCallback = func(path string) tea.Cmd {
-			return func() tea.Msg {
-				if path == "" {
-					path = "."
-				}
-				_, err := m.git.InitRepository(path)
-				if err != nil {
-					return errMsg{err}
-				}
-				// Update repo info after initialization
-				m.repoName, m.branchName, _ = m.git.GetRepoInfo()
-				return commandExecutedMsg{fmt.Sprintf("git init %s", path)}
 			}
 		}
 	}

@@ -57,13 +57,13 @@ func initialModel() Model {
 	cfg, _ := load_config()
 
 	var selectedThemeName string
-	if t, ok := Themes[cfg.Theme]; ok {
+	if t, ok := Themes[cfg.Theme]; ok{
 		selectedThemeName = cfg.Theme
 		_ = t // to avoid unused variable warning
-	} else {
-		if _, err := load_custom_theme(cfg.Theme); err == nil {
-			selectedThemeName = cfg.Theme
-		} else {
+	} else{
+		if _, err := load_custom_theme(cfg.Theme); err == nil{
+			selectedThemeName = cfg.Theme 
+		} else{
 			//fallback
 			selectedThemeName = themeNames[0]
 		}
@@ -118,9 +118,9 @@ func initialModel() Model {
 	}
 }
 
-func indexOf(arr []string, val string) int {
-	for i, s := range arr {
-		if s == val {
+func indexOf(arr []string, val string) int{
+	for i, s := range arr{
+		if s == val{
 			return i
 		}
 	}
@@ -158,8 +158,6 @@ func (m *Model) panelShortHelp() []key.Binding {
 		return keys.CommitsPanelHelp()
 	case StashPanel:
 		return keys.StashPanelHelp()
-	case StatusPanel:
-		return keys.StatusPanelHelp()
 	default:
 		return keys.ShortHelp()
 	}
