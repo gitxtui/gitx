@@ -85,9 +85,18 @@ func ensureGitRepo(shouldInit bool) error {
 		return fmt.Errorf("error: not a git repository\nrun gitx -i/--init to initialize a new git repository and open gitx")
 	}
 
+	// Check if the directory is unsafe for git initialization
+	safe, err := git.WarnIfUnsafe(".")
+	if err != nil {
+		return fmt.Errorf("safety check failed: %w", err)
+	}
+	if !safe {
+		return fmt.Errorf("git initialization cancelled by user")
+	}
+
 	// Initialize a new git repository
 	g := &git.GitCommands{}
-	_, err := g.InitRepository(".")
+	_, err = g.InitRepository(".")
 	if err != nil {
 		return fmt.Errorf("failed to initialize git repository: %w", err)
 	}
