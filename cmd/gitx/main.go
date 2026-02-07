@@ -140,7 +140,7 @@ func checkInitSafety() (bool, error) {
 func promptInitConfirmation(path, reason string) (bool, error) {
 	fmt.Println()
 	fmt.Println("WARNING: You are about to initialize a git repository in a " + reason + ":")
-	fmt.Printf("  Path: %s\n", path)
+	fmt.Printf("   Path: %s\n", path)
 	fmt.Println()
 	fmt.Println("This may not be what you intended. Initializing git here could cause issues.")
 	fmt.Print("Continue? [y/N]: ")
