@@ -43,7 +43,11 @@ func (g *GitCommands) ShowCommit(commitHash string) (string, error) {
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), err
+		return string(output), fmt.Errorf(
+			"failed to show commit %s: %w",
+			commitHash,
+			err,
+		)
 	}
 
 	return string(output), nil

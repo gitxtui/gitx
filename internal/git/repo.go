@@ -1,6 +1,7 @@
 package git
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -10,7 +11,10 @@ func (g *GitCommands) GetRepoInfo() (repoName string, branchName string, err err
 	// Get the root dir of the repo.
 	repoPath, _, err := g.executeCommand("rev-parse", "--show-toplevel")
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf(
+			"failed to get repository root path: %w",
+			err,
+		)
 	}
 	repoPath = strings.TrimSpace(repoPath)
 	repoName = filepath.Base(repoPath)
@@ -18,7 +22,10 @@ func (g *GitCommands) GetRepoInfo() (repoName string, branchName string, err err
 	// Get the current branch name.
 	branchName, _, err = g.executeCommand("rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf(
+			"failed to get current branch name: %w",
+			err,
+		)
 	}
 	branchName = strings.TrimSpace(branchName)
 
@@ -28,7 +35,10 @@ func (g *GitCommands) GetRepoInfo() (repoName string, branchName string, err err
 func (g *GitCommands) GetGitRepoPath() (repoPath string, err error) {
 	repoPath, _, err = g.executeCommand("rev-parse", "--git-dir")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf(
+			"failed to get git directory path: %w",
+			err,
+		)
 	}
 	repoPath = strings.TrimSpace(repoPath)
 	return repoPath, nil
@@ -38,7 +48,10 @@ func (g *GitCommands) GetGitRepoPath() (repoPath string, err error) {
 func (g *GitCommands) GetUserName() (string, error) {
 	userName, _, err := g.executeCommand("config", "user.name")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf(
+			"failed to get git user name: %w",
+			err,
+		)
 	}
 	return strings.TrimSpace(userName), nil
 }

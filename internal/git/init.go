@@ -14,7 +14,11 @@ func (g *GitCommands) InitRepository(path string) (string, error) {
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), err
+		return string(output), fmt.Errorf(
+			"failed to initialize repository at %s: %w",
+			path,
+			err,
+		)
 	}
 
 	absPath, _ := filepath.Abs(path)

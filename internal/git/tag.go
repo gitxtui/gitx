@@ -37,7 +37,7 @@ func (g *GitCommands) ManageTag(options TagOptions) (string, error) {
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), err
+		return string(output), fmt.Errorf("git tag command failed: %w", err)
 	}
 
 	return string(output), nil
