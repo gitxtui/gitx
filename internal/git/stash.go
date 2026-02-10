@@ -23,7 +23,7 @@ func (g *GitCommands) GetStashes() ([]*Stash, error) {
 
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("git stash list failed: %w", err)
 	}
 
 	rawStashes := strings.Split(strings.TrimSpace(string(output)), "\n")
@@ -101,7 +101,7 @@ func (g *GitCommands) Stash(options StashOptions) (string, string, error) {
 		if strings.Contains(string(output), "No stash entries found") || strings.Contains(string(output), "No stash found") {
 			return "No stashes found.", cmdStr, nil
 		}
-		return string(output), cmdStr, err
+		return string(output), cmdStr, fmt.Errorf("git stash command failed: %w", err)
 	}
 
 	return string(output), cmdStr, nil
@@ -113,7 +113,7 @@ func (g *GitCommands) StashAll() (string, string, error) {
 
 	output, cmdStr, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), cmdStr, err
+		return string(output), cmdStr, fmt.Errorf("git stash push -u failed: %w", err)
 	}
 	return string(output), cmdStr, nil
 }

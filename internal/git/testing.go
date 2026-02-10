@@ -1,6 +1,7 @@
 package git
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -136,15 +137,19 @@ func runGitConfig(dir string) error {
 	cmd := exec.Command("git", "config", "user.name", "Test User")
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
-		return err
+		return fmt.Errorf("git config user.name failed: %w", err)
 	}
 	cmd = exec.Command("git", "config", "user.email", "test@example.com")
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
-		return err
+		return fmt.Errorf("git config user.email failed: %w", err)
 	}
 	// Disable GPG signing for commits
 	cmd = exec.Command("git", "config", "commit.gpgsign", "false")
 	cmd.Dir = dir
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("git config commit.gpgsign failed: %w", err)
+	}
+
+	return nil
 }

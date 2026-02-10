@@ -25,7 +25,11 @@ func (g *GitCommands) BlameFile(filePath string) (string, error) {
 	args := []string{"blame", filePath}
 	output, _, err := g.executeCommand(args...)
 	if err != nil {
-		return string(output), err
+		return string(output), fmt.Errorf(
+			"failed to blame file %s: %w",
+			filePath,
+			err,
+		)
 	}
 
 	return string(output), nil
