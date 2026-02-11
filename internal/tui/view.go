@@ -19,6 +19,69 @@ func stripAnsi(str string) string {
 	return ansiRegex.ReplaceAllString(str, "")
 }
 
+// styleDiffContent applies visual highlighting to diff lines for better readability.
+// It detects and styles:
+// - Diff headers (diff --git, index, ---, +++, @@) with bold magenta
+// - Added lines (+) with green
+// - Removed lines (-) with red
+// - Context lines with normal or dimmed styling
+// It also adds visual separation before hunk markers for improved scanability.
+func styleDiffContent(content string, theme Theme) string {
+	// Quick check: if content doesn't look like a diff, return as-is
+	if !strings.Contains(content, "diff --git") && !strings.Contains(content, "@@") {
+		return content
+	}
+
+	lines := strings.Split(content, "\n")
+
+	// Create styles for different diff elements
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#d2a8ff")).
+		Bold(true)
+
+	// Use theme colors for added/removed lines (aligns with git status colors)
+	addedStyle := theme.GitStaged     // Green
+	removedStyle := theme.GitUnstaged // Red
+
+	var result []string
+	for i, line := range lines {
+		if len(line) == 0 {
+			result = append(result, line)
+			continue
+		}
+
+		firstChar := line[0]
+
+		// Add spacing before hunk markers (visual separation of hunks)
+		if strings.HasPrefix(line, "@@") && i > 0 && result[len(result)-1] != "" {
+			result = append(result, "") // Add blank line for visual separation
+		}
+
+		// Handle diff headers
+		if strings.HasPrefix(line, "diff --git") ||
+			strings.HasPrefix(line, "index ") ||
+			strings.HasPrefix(line, "---") ||
+			strings.HasPrefix(line, "+++") ||
+			strings.HasPrefix(line, "@@") {
+			result = append(result, headerStyle.Render(line))
+		} else if firstChar == '+' && !strings.HasPrefix(line, "+++") {
+			// Added line: apply green styling
+			result = append(result, addedStyle.Render(line))
+		} else if firstChar == '-' && !strings.HasPrefix(line, "---") {
+			// Removed line: apply red styling
+			result = append(result, removedStyle.Render(line))
+		} else if firstChar == '\\' {
+			// "\ No newline at end of file" marker - treat as metadata
+			result = append(result, headerStyle.Render(line))
+		} else {
+			// Context line (starts with space) - keep as-is
+			result = append(result, line)
+		}
+	}
+
+	return strings.Join(result, "\n")
+}
+
 // View is the main render function for the application.
 func (m Model) View() string {
 

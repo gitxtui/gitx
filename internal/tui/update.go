@@ -499,6 +499,8 @@ func (m *Model) updateMainPanel() tea.Cmd {
 		if content == "" {
 			content = "Select an item to see details."
 		}
+		// Apply visual styling to diff headers for better readability
+		content = styleDiffContent(content, m.theme)
 		return mainContentUpdatedMsg{content: content}
 	}
 }
