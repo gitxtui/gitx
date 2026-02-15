@@ -19,6 +19,194 @@ func stripAnsi(str string) string {
 	return ansiRegex.ReplaceAllString(str, "")
 }
 
+// diffLineType represents the type of a diff line.
+type diffLineType int
+
+const (
+	lineTypeContext diffLineType = iota
+	lineTypeAdded
+	lineTypeRemoved
+	lineTypeHeader
+	lineTypeFileHeader
+	lineTypeHunkHeader
+)
+
+// diffRow represents a single row in the structured diff.
+type diffRow struct {
+	lineType diffLineType
+	oldLine  string
+	newLine  string
+	rawLine  string // Original line for fallback
+}
+
+// parseDiffStructure transforms a unified diff into structured rows suitable for split-view rendering.
+func parseDiffStructure(content string) []diffRow {
+	lines := strings.Split(content, "\n")
+	var rows []diffRow
+
+	for _, line := range lines {
+		if len(line) == 0 {
+			rows = append(rows, diffRow{lineType: lineTypeContext, oldLine: "", newLine: "", rawLine: ""})
+			continue
+		}
+
+		firstChar := line[0]
+
+		// File headers
+		if strings.HasPrefix(line, "diff --git") ||
+			strings.HasPrefix(line, "index ") {
+			rows = append(rows, diffRow{lineType: lineTypeFileHeader, rawLine: line})
+			continue
+		}
+
+		// --- and +++ headers (but not as content)
+		if strings.HasPrefix(line, "---") && len(line) > 3 && line[3] == ' ' {
+			rows = append(rows, diffRow{lineType: lineTypeFileHeader, rawLine: line})
+			continue
+		}
+		if strings.HasPrefix(line, "+++") && len(line) > 3 && line[3] == ' ' {
+			rows = append(rows, diffRow{lineType: lineTypeFileHeader, rawLine: line})
+			continue
+		}
+
+		// Hunk headers
+		if strings.HasPrefix(line, "@@") {
+			rows = append(rows, diffRow{lineType: lineTypeHunkHeader, rawLine: line})
+			continue
+		}
+
+		// Newline marker
+		if strings.HasPrefix(line, "\\ No newline") {
+			rows = append(rows, diffRow{lineType: lineTypeFileHeader, rawLine: line})
+			continue
+		}
+
+		// Added lines (but not +++ headers)
+		if firstChar == '+' {
+			rows = append(rows, diffRow{lineType: lineTypeAdded, newLine: line, rawLine: line})
+			continue
+		}
+
+		// Removed lines (but not --- headers)
+		if firstChar == '-' {
+			rows = append(rows, diffRow{lineType: lineTypeRemoved, oldLine: line, rawLine: line})
+			continue
+		}
+
+		// Context lines (start with space)
+		if firstChar == ' ' {
+			contentWithoutSpace := line[1:]
+			rows = append(rows, diffRow{lineType: lineTypeContext, oldLine: contentWithoutSpace, newLine: contentWithoutSpace, rawLine: line})
+			continue
+		}
+
+		// Fallback for any other lines
+		rows = append(rows, diffRow{lineType: lineTypeContext, oldLine: line, newLine: line, rawLine: line})
+	}
+
+	return rows
+}
+
+// renderSplitDiffView renders a GitHub-style split-view diff.
+// columnWidth should be roughly half the viewport width minus some padding.
+func renderSplitDiffView(rows []diffRow, columnWidth int, theme Theme) string {
+	if columnWidth < 20 {
+		// Column too narrow for split view
+		return ""
+	}
+
+	// Create themed styles
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#d2a8ff")).
+		Bold(true)
+
+	// Use theme's added/removed colors for backgrounds
+	addedStyle := theme.GitStaged.
+		Width(columnWidth).
+		Padding(0, 1)
+
+	removedStyle := theme.GitUnstaged.
+		Width(columnWidth).
+		Padding(0, 1)
+
+	contextStyle := lipgloss.NewStyle().
+		Width(columnWidth).
+		Padding(0, 1)
+
+	emptyStyle := lipgloss.NewStyle().
+		Width(columnWidth).
+		Padding(0, 1)
+
+	var renderedRows []string
+
+	for _, row := range rows {
+		var left, right string
+
+		switch row.lineType {
+		case lineTypeFileHeader:
+			// File headers span full width
+			fullLine := headerStyle.Width(columnWidth * 2).Render(row.rawLine)
+			renderedRows = append(renderedRows, fullLine)
+
+		case lineTypeHunkHeader:
+			// Hunk headers span full width
+			fullLine := headerStyle.Width(columnWidth * 2).Render(row.rawLine)
+			renderedRows = append(renderedRows, fullLine)
+
+		case lineTypeRemoved:
+			// Removed line on left, empty on right
+			left = removedStyle.Render(strings.TrimPrefix(row.oldLine, "-"))
+			right = emptyStyle.Render("")
+			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, right))
+
+		case lineTypeAdded:
+			// Empty on left, added line on right
+			left = emptyStyle.Render("")
+			right = addedStyle.Render(strings.TrimPrefix(row.newLine, "+"))
+			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, right))
+
+		case lineTypeContext:
+			// Context lines on both sides
+			left = contextStyle.Render(row.oldLine)
+			right = contextStyle.Render(row.newLine)
+			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, right))
+
+		default:
+			// Fallback: show on both sides
+			left = contextStyle.Render(row.oldLine)
+			right = contextStyle.Render(row.newLine)
+			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, right))
+		}
+	}
+
+	return strings.Join(renderedRows, "\n")
+}
+
+// renderAdaptiveDiffView returns the appropriately formatted diff based on viewport width.
+// If width >= 120, uses split-view; otherwise falls back to unified diff.
+func renderAdaptiveDiffView(content string, width int, theme Theme) string {
+	// Quick check: if content doesn't look like a diff, return as-is
+	if !strings.Contains(content, "diff --git") && !strings.Contains(content, "@@") {
+		return content
+	}
+
+	// Threshold for split-view: 120 chars available
+	const splitViewThreshold = 120
+
+	if width >= splitViewThreshold && width > 60 {
+		// Use split-view mode
+		columnWidth := (width - 1) / 2
+		rows := parseDiffStructure(content)
+		splitView := renderSplitDiffView(rows, columnWidth, theme)
+		if splitView != "" {
+			return splitView
+		}
+	}
+
+	// Fallback to unified diff styling
+	return styleDiffContent(content, theme)
+}
+
 // styleDiffContent applies visual highlighting to diff lines for better readability.
 // It detects and styles:
 // - Diff headers (diff --git, index, ---, +++, @@) with bold magenta
