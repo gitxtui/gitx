@@ -7,10 +7,10 @@ import (
 )
 
 var (
-	ConfigDirName = ".config/gitx"
-	ConfigFileName = "config.toml"
-	ConfigDirPath string
-	ConfigFilePath string
+	ConfigDirName       = ".config/gitx"
+	ConfigFileName      = "config.toml"
+	ConfigDirPath       string
+	ConfigFilePath      string
 	ConfigThemesDirPath string
 )
 
