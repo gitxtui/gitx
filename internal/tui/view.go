@@ -194,7 +194,7 @@ func renderSplitDiffView(rows []diffRow, columnWidth int, theme Theme) string {
 }
 
 // renderAdaptiveDiffView returns the appropriately formatted diff based on viewport width.
-// If width >= 120, uses split-view; otherwise falls back to unified diff.
+// If width >= 80, uses split-view; otherwise falls back to unified diff.
 func renderAdaptiveDiffView(content string, width int, theme Theme) string {
 	// Quick check: if content doesn't look like a diff, return as-is
 	if !strings.Contains(content, "diff --git") && !strings.Contains(content, "@@") {
