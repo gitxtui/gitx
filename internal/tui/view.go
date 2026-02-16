@@ -201,7 +201,7 @@ func renderAdaptiveDiffView(content string, width int, theme Theme) string {
 		return content
 	}
 
-	// Threshold for split-view: 120 chars available
+	// Threshold for split-view: 80 chars available
 	const splitViewThreshold = 80
 
 	if width >= splitViewThreshold && width > 60 {
