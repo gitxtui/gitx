@@ -499,6 +499,10 @@ func (m *Model) updateMainPanel() tea.Cmd {
 		if content == "" {
 			content = "Select an item to see details."
 		}
+		// Apply adaptive visual styling: split-view for wide terminals, unified for narrow ones
+		// Calculate right panel width (approximately 65% of total width minus borders)
+		rightPanelWidth := int(float64(m.width)*(1-leftPanelWidthRatio)) - borderWidth - 2
+		content = renderAdaptiveDiffView(content, rightPanelWidth, m.theme)
 		return mainContentUpdatedMsg{content: content}
 	}
 }
