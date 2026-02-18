@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -19,6 +20,12 @@ func stripAnsi(str string) string {
 	return ansiRegex.ReplaceAllString(str, "")
 }
 
+// parseIntFromString converts a string to an integer, returning an error if it fails.
+func parseIntFromString(s string) (int, error) {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	return n, err
+}
+
 // diffLineType represents the type of a diff line.
 type diffLineType int
 
@@ -33,16 +40,19 @@ const (
 
 // diffRow represents a single row in the structured diff.
 type diffRow struct {
-	lineType diffLineType
-	oldLine  string
-	newLine  string
-	rawLine  string // Original line for fallback
+	lineType   diffLineType
+	oldLine    string
+	newLine    string
+	rawLine    string // Original line for fallback
+	oldLineNum int    // Line number in old file (0 if not applicable)
+	newLineNum int    // Line number in new file (0 if not applicable)
 }
 
 // parseDiffStructure transforms a unified diff into structured rows suitable for split-view rendering.
 func parseDiffStructure(content string) []diffRow {
 	lines := strings.Split(content, "\n")
 	var rows []diffRow
+	var oldLineNum, newLineNum int
 
 	for _, line := range lines {
 		if len(line) == 0 {
@@ -77,9 +87,25 @@ func parseDiffStructure(content string) []diffRow {
 			continue
 		}
 
-		// Hunk headers
+		// Hunk headers - extract the starting line numbers
 		if strings.HasPrefix(cleanedLine, "@@") {
 			rows = append(rows, diffRow{lineType: lineTypeHunkHeader, rawLine: line})
+			// Parse hunk header format: @@ -oldStart,oldCount +newStart,newCount @@
+			hunkParts := strings.Fields(cleanedLine)
+			if len(hunkParts) >= 2 {
+				oldPart := strings.TrimPrefix(hunkParts[1], "-")
+				oldStart := strings.Split(oldPart, ",")[0]
+				if num, err := parseIntFromString(oldStart); err == nil {
+					oldLineNum = num
+				}
+				if len(hunkParts) >= 3 {
+					newPart := strings.TrimPrefix(hunkParts[2], "+")
+					newStart := strings.Split(newPart, ",")[0]
+					if num, err := parseIntFromString(newStart); err == nil {
+						newLineNum = num
+					}
+				}
+			}
 			continue
 		}
 
@@ -89,123 +115,190 @@ func parseDiffStructure(content string) []diffRow {
 			continue
 		}
 
-		// Added lines (but not +++ headers)
+		// Added lines
 		if firstChar == '+' {
-			// Store content without the "+" prefix for rendering
 			contentWithoutPrefix := cleanedLine[1:]
-			rows = append(rows, diffRow{lineType: lineTypeAdded, newLine: contentWithoutPrefix, rawLine: line})
+			row := diffRow{lineType: lineTypeAdded, newLine: contentWithoutPrefix, rawLine: line, newLineNum: newLineNum}
+			rows = append(rows, row)
+			newLineNum++
 			continue
 		}
 
-		// Removed lines (but not --- headers)
+		// Removed lines
 		if firstChar == '-' {
-			// Store content without the "-" prefix for rendering
 			contentWithoutPrefix := cleanedLine[1:]
-			rows = append(rows, diffRow{lineType: lineTypeRemoved, oldLine: contentWithoutPrefix, rawLine: line})
+			row := diffRow{lineType: lineTypeRemoved, oldLine: contentWithoutPrefix, rawLine: line, oldLineNum: oldLineNum}
+			rows = append(rows, row)
+			oldLineNum++
 			continue
 		}
 
 		// Context lines (start with space)
 		if firstChar == ' ' {
-			// Store content without the space prefix
 			contentWithoutSpace := cleanedLine[1:]
-			rows = append(rows, diffRow{lineType: lineTypeContext, oldLine: contentWithoutSpace, newLine: contentWithoutSpace, rawLine: line})
+			row := diffRow{lineType: lineTypeContext, oldLine: contentWithoutSpace, newLine: contentWithoutSpace, rawLine: line, oldLineNum: oldLineNum, newLineNum: newLineNum}
+			rows = append(rows, row)
+			oldLineNum++
+			newLineNum++
 			continue
 		}
 
-		// Fallback for any other lines
+		// Fallback
 		rows = append(rows, diffRow{lineType: lineTypeContext, oldLine: cleanedLine, newLine: cleanedLine, rawLine: line})
 	}
 
 	return rows
 }
 
-// renderSplitDiffView renders a GitHub-style split-view diff.
-// columnWidth should be roughly half the viewport width minus some padding.
+// calculateMaxLineNumber returns the maximum line number in the diff.
+func calculateMaxLineNumber(rows []diffRow) int {
+	max := 0
+	for _, row := range rows {
+		if row.oldLineNum > max {
+			max = row.oldLineNum
+		}
+		if row.newLineNum > max {
+			max = row.newLineNum
+		}
+	}
+	return max
+}
+
+// renderSplitDiffView renders a GitHub-style split-view diff with line numbers and a separator.
+//
+// FIX SUMMARY (gap between panels):
+//  1. All content styles use NO padding (Padding(0,0)) — padding was causing extra width that
+//     pushed the separator away. Content is space-padded manually via Width() instead.
+//  2. The separator style has NO margin, NO padding, and is exactly Width(1).
+//  3. Each half-panel is composed as a fixed-width block with Width(columnWidth) so that
+//     lipgloss.JoinHorizontal sees exact widths and produces zero gap.
+//  4. lineNumStyle, contentStyle, and the half-panel wrapper all use explicit Width so the
+//     total always equals columnWidth on each side.
 func renderSplitDiffView(rows []diffRow, columnWidth int, theme Theme) string {
 	if columnWidth < 20 {
-		// Column too narrow for split view
 		return ""
 	}
 
-	// Create themed styles
-	headerStyle := lipgloss.NewStyle().Bold(true)
+	// Calculate line number width (minimum 4 chars).
+	maxLineNum := calculateMaxLineNumber(rows)
+	lineNumWidth := 4
+	if maxLineNum > 0 {
+		w := len(fmt.Sprintf("%d", maxLineNum)) + 1
+		if w > lineNumWidth {
+			lineNumWidth = w
+		}
+	}
 
-	// Use theme's added/removed colors for backgrounds
+	// Layout per half: [lineNum(lineNumWidth)] [content(contentColWidth)]
+	// Total = lineNumWidth + contentColWidth = columnWidth  (no separator chars inside a half)
+	contentColWidth := columnWidth - lineNumWidth
+
+	// Separator: exactly 1 character wide, same color as active border, zero padding/margin.
+	separatorColor := theme.ActiveBorder.Style.GetBorderLeftForeground()
+	separatorStyle := lipgloss.NewStyle().
+		Width(1).
+		Foreground(separatorColor)
+	sep := separatorStyle.Render("│")
+
+	// Line number style — right-aligned, dimmed, NO extra padding.
+	lineNumStyle := lipgloss.NewStyle().
+		Width(lineNumWidth).
+		Align(lipgloss.Right).
+		Foreground(lipgloss.Color("8"))
+
+	// renderLineNum returns a formatted, fixed-width line number string.
+	renderLineNum := func(n int) string {
+		if n > 0 {
+			return lineNumStyle.Render(fmt.Sprintf("%d", n))
+		}
+		return lineNumStyle.Render("")
+	}
+
+	// Content styles: NO padding, fixed width so the half-panel total is exact.
+	// Background color is applied only; width controls the column, not padding.
 	addedStyle := theme.GitStaged.
-		Width(columnWidth).
-		Padding(0, 1)
+		Width(contentColWidth).
+		MaxWidth(contentColWidth)
 
 	removedStyle := theme.GitUnstaged.
-		Width(columnWidth).
-		Padding(0, 1)
+		Width(contentColWidth).
+		MaxWidth(contentColWidth)
 
 	contextStyle := lipgloss.NewStyle().
-		Width(columnWidth).
-		Padding(0, 1)
+		Width(contentColWidth).
+		MaxWidth(contentColWidth)
 
 	emptyStyle := lipgloss.NewStyle().
+		Width(contentColWidth).
+		MaxWidth(contentColWidth)
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
 		Width(columnWidth).
-		Padding(0, 1)
+		MaxWidth(columnWidth)
+
+	// buildHalf assembles [lineNum][content] into a fixed-width columnWidth string.
+	buildHalf := func(lineNum string, content string) string {
+		return lipgloss.JoinHorizontal(lipgloss.Top, lineNum, content)
+	}
 
 	var renderedRows []string
 
 	for _, row := range rows {
-		var left, right string
-
 		switch row.lineType {
-		case lineTypeFileHeader:
-			// File headers span full width
-			fullLine := headerStyle.Width(columnWidth * 2).Render(row.rawLine)
-			renderedRows = append(renderedRows, fullLine)
 
-		case lineTypeHunkHeader:
-			// Hunk headers span full width
-			fullLine := headerStyle.Width(columnWidth * 2).Render(row.rawLine)
-			renderedRows = append(renderedRows, fullLine)
+		case lineTypeFileHeader, lineTypeHunkHeader:
+			// Span the full width (both halves + separator).
+			// Left half holds the header text; right half is blank.
+			left := headerStyle.Render(stripAnsi(row.rawLine))
+			right := lipgloss.NewStyle().Width(columnWidth).Render("")
+			combined := lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right)
+			renderedRows = append(renderedRows, combined)
 
 		case lineTypeRemoved:
-			// Removed line on left (oldLine is already without "-" prefix), empty on right
-			left = removedStyle.Render(row.oldLine)
-			right = emptyStyle.Render("")
-			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, right))
+			left := buildHalf(renderLineNum(row.oldLineNum), removedStyle.Render(row.oldLine))
+			right := buildHalf(renderLineNum(0), emptyStyle.Render(""))
+			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right))
 
 		case lineTypeAdded:
-			// Empty on left, added line on right (newLine is already without "+" prefix)
-			left = emptyStyle.Render("")
-			right = addedStyle.Render(row.newLine)
-			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, right))
+			left := buildHalf(renderLineNum(0), emptyStyle.Render(""))
+			right := buildHalf(renderLineNum(row.newLineNum), addedStyle.Render(row.newLine))
+			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right))
 
 		case lineTypeContext:
-			// Context lines on both sides (oldLine and newLine are already without space prefix and identical)
-			left = contextStyle.Render(row.oldLine)
-			right = contextStyle.Render(row.newLine)
-			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, right))
+			left := buildHalf(renderLineNum(row.oldLineNum), contextStyle.Render(row.oldLine))
+			right := buildHalf(renderLineNum(row.newLineNum), contextStyle.Render(row.newLine))
+			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right))
 
 		default:
-			// Fallback: show on both sides
-			left = contextStyle.Render(row.oldLine)
-			right = contextStyle.Render(row.newLine)
-			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, right))
+			left := buildHalf(renderLineNum(row.oldLineNum), contextStyle.Render(row.oldLine))
+			right := buildHalf(renderLineNum(row.newLineNum), contextStyle.Render(row.newLine))
+			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right))
 		}
 	}
 
 	return strings.Join(renderedRows, "\n")
 }
 
-// renderAdaptiveDiffView returns the appropriately formatted diff based on viewport width.
-// If width >= 80, uses split-view; otherwise falls back to unified diff.
-func renderAdaptiveDiffView(content string, width int, theme Theme) string {
-	// Quick check: if content doesn't look like a diff, return as-is
+// renderAdaptiveDiffView returns the appropriately formatted diff based on viewport width and view mode preference.
+func renderAdaptiveDiffView(content string, width int, theme Theme, forcedViewMode *bool) string {
 	if !strings.Contains(content, "diff --git") && !strings.Contains(content, "@@") {
 		return content
 	}
 
-	// Threshold for split-view: 80 chars available
 	const splitViewThreshold = 80
 
-	if width >= splitViewThreshold && width > 60 {
-		// Use split-view mode
+	useSplitView := false
+	if forcedViewMode != nil {
+		if *forcedViewMode {
+			useSplitView = width >= 40
+		}
+	} else {
+		useSplitView = width >= splitViewThreshold && width > 60
+	}
+
+	if useSplitView && width > 40 {
+		// columnWidth = (total - 1 separator) / 2
 		columnWidth := (width - 1) / 2
 		rows := parseDiffStructure(content)
 		splitView := renderSplitDiffView(rows, columnWidth, theme)
@@ -214,31 +307,20 @@ func renderAdaptiveDiffView(content string, width int, theme Theme) string {
 		}
 	}
 
-	// Fallback to unified diff styling
 	return styleDiffContent(content, theme)
 }
 
 // styleDiffContent applies visual highlighting to diff lines for better readability.
-// It detects and styles:
-// - Diff headers (diff --git, index, ---, +++, @@) with bold magenta
-// - Added lines (+) with green
-// - Removed lines (-) with red
-// - Context lines with normal or dimmed styling
-// It also adds visual separation before hunk markers for improved scanability.
 func styleDiffContent(content string, theme Theme) string {
-	// Quick check: if content doesn't look like a diff, return as-is
 	if !strings.Contains(content, "diff --git") && !strings.Contains(content, "@@") {
 		return content
 	}
 
 	lines := strings.Split(content, "\n")
 
-	// Create styles for different diff elements
 	headerStyle := lipgloss.NewStyle().Bold(true)
-
-	// Use theme colors for added/removed lines (aligns with git status colors)
-	addedStyle := theme.GitStaged     // Green
-	removedStyle := theme.GitUnstaged // Red
+	addedStyle := theme.GitStaged
+	removedStyle := theme.GitUnstaged
 
 	var result []string
 	for i, line := range lines {
@@ -247,7 +329,6 @@ func styleDiffContent(content string, theme Theme) string {
 			continue
 		}
 
-		// Strip ANSI codes before checking prefixes
 		cleanedLine := stripAnsi(line)
 
 		if len(cleanedLine) == 0 {
@@ -257,12 +338,10 @@ func styleDiffContent(content string, theme Theme) string {
 
 		firstChar := cleanedLine[0]
 
-		// Add spacing before hunk markers (visual separation of hunks)
 		if strings.HasPrefix(cleanedLine, "@@") && i > 0 && result[len(result)-1] != "" {
-			result = append(result, "") // Add blank line for visual separation
+			result = append(result, "")
 		}
 
-		// Handle diff headers
 		if strings.HasPrefix(cleanedLine, "diff --git") ||
 			strings.HasPrefix(cleanedLine, "index ") ||
 			strings.HasPrefix(cleanedLine, "---") ||
@@ -270,16 +349,12 @@ func styleDiffContent(content string, theme Theme) string {
 			strings.HasPrefix(cleanedLine, "@@") {
 			result = append(result, headerStyle.Render(line))
 		} else if firstChar == '+' && !strings.HasPrefix(cleanedLine, "+++") {
-			// Added line: apply green styling
 			result = append(result, addedStyle.Render(line))
 		} else if firstChar == '-' && !strings.HasPrefix(cleanedLine, "---") {
-			// Removed line: apply red styling
 			result = append(result, removedStyle.Render(line))
 		} else if firstChar == '\\' {
-			// "\ No newline at end of file" marker - treat as metadata
 			result = append(result, headerStyle.Render(line))
 		} else {
-			// Context line (starts with space) - keep as-is
 			result = append(result, line)
 		}
 	}
@@ -289,7 +364,6 @@ func styleDiffContent(content string, theme Theme) string {
 
 // View is the main render function for the application.
 func (m Model) View() string {
-
 	var finalView string
 	if m.showHelp {
 		finalView = m.renderHelpView()
@@ -297,7 +371,6 @@ func (m Model) View() string {
 		finalView = m.renderMainView()
 	}
 
-	// If not in normal mode, render a pop-up on top.
 	if m.mode != modeNormal {
 		var popup string
 		switch m.mode {
@@ -386,7 +459,7 @@ func (m Model) renderMainView() string {
 	helpBar := m.renderHelpBar()
 
 	finalView := lipgloss.JoinVertical(lipgloss.Bottom, content, helpBar)
-	zone.Scan(finalView) // Scan for mouse zones.
+	zone.Scan(finalView)
 	return finalView
 }
 
@@ -414,7 +487,6 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 	formattedTitle := fmt.Sprintf("[%d] %s", int(panel), title)
 	p := m.panels[panel]
 
-	// Add item count to titles of selectable panels.
 	if panel == FilesPanel || panel == BranchesPanel || panel == CommitsPanel || panel == StashPanel {
 		if len(p.lines) > 0 {
 			formattedTitle = fmt.Sprintf("[%d] %s (%d/%d)", int(panel), title, p.cursor+1, len(p.lines))
@@ -424,7 +496,6 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 	content := p.content
 	contentWidth := width - borderWidth
 
-	// For selectable panels, render each line individually.
 	if panel == FilesPanel || panel == BranchesPanel || panel == CommitsPanel || panel == StashPanel {
 		var builder strings.Builder
 		for i, line := range p.lines {
@@ -433,9 +504,7 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 
 			if i == p.cursor && isFocused {
 				var cleanLine string
-				// For the selected line, strip any existing ANSI codes before applying selection style.
 				if panel == FilesPanel {
-					// For files panel, don't show the hidden path in the selection.
 					parts := strings.Split(line, "\t")
 					if len(parts) >= 3 {
 						cleanLine = fmt.Sprintf("%s %s %s", parts[0], parts[1], parts[2])
@@ -446,7 +515,7 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 					cleanLine = stripAnsi(line)
 				}
 
-				cleanLine = strings.ReplaceAll(cleanLine, "\t", "  ") // Also replace tabs
+				cleanLine = strings.ReplaceAll(cleanLine, "\t", "  ")
 				selectionStyle := m.theme.SelectedLine.Width(contentWidth)
 				finalLine = selectionStyle.Render(cleanLine)
 			} else {
@@ -463,7 +532,6 @@ func (m Model) renderPanel(title string, width, height int, panel Panel) string 
 
 	isScrollable := !p.viewport.AtTop() || !p.viewport.AtBottom()
 	showScrollbar := isScrollable
-	// Conditionally hide scrollbar for certain panels when not focused.
 	if panel == StashPanel || panel == SecondaryPanel {
 		showScrollbar = isScrollable && isFocused
 	}
@@ -616,16 +684,11 @@ func styleUnselectedLine(line string, panel Panel, theme Theme) string {
 	case CommitsPanel:
 		parts := strings.SplitN(line, "\t", 4)
 		if len(parts) != 4 {
-			// This is a graph-only line, already colored by git.
-			// We just replace the placeholder node with a styled one.
 			return strings.ReplaceAll(line, "○", theme.GraphNode.Render("○"))
 		}
 		graph, sha, author, subject := parts[0], parts[1], parts[2], parts[3]
 
-		// The graph string is already colored by git, but we style the node.
 		styledGraph := strings.ReplaceAll(graph, "○", theme.GraphNode.Render("○"))
-
-		// Apply our theme's styles to the other parts.
 		styledSHA := theme.CommitSHA.Render(sha)
 		styledAuthor := theme.CommitAuthor.Render(author)
 		if strings.HasPrefix(strings.ToLower(subject), "merge") {

@@ -49,6 +49,8 @@ type Model struct {
 	confirmCallback  func(bool) tea.Cmd
 	// New fields for command history
 	CommandHistory []string
+	// Diff view mode: nil = auto (respects threshold), true = split, false = unified
+	forcedDiffViewMode *bool
 }
 
 // initialModel creates the initial state of the application.
@@ -99,22 +101,23 @@ func initialModel() Model {
 	historyVP.SetContent("Command history will appear here...")
 
 	return Model{
-		theme:             Themes[selectedThemeName],
-		themeNames:        themeNames,
-		themeIndex:        indexOf(themeNames, selectedThemeName),
-		focusedPanel:      StatusPanel,
-		activeSourcePanel: StatusPanel,
-		help:              help.New(),
-		helpViewport:      viewport.New(0, 0),
-		showHelp:          false,
-		git:               gc,
-		repoName:          repoName,
-		branchName:        branchName,
-		panels:            panels,
-		mode:              modeNormal,
-		textInput:         ti,
-		descriptionInput:  ta,
-		CommandHistory:    []string{},
+		theme:              Themes[selectedThemeName],
+		themeNames:         themeNames,
+		themeIndex:         indexOf(themeNames, selectedThemeName),
+		focusedPanel:       StatusPanel,
+		activeSourcePanel:  StatusPanel,
+		help:               help.New(),
+		helpViewport:       viewport.New(0, 0),
+		showHelp:           false,
+		git:                gc,
+		repoName:           repoName,
+		branchName:         branchName,
+		panels:             panels,
+		mode:               modeNormal,
+		textInput:          ti,
+		descriptionInput:   ta,
+		CommandHistory:     []string{},
+		forcedDiffViewMode: nil,
 	}
 }
 
@@ -145,6 +148,22 @@ func (m Model) Init() tea.Cmd {
 func (m *Model) nextTheme() {
 	m.themeIndex = (m.themeIndex + 1) % len(m.themeNames)
 	m.theme = Themes[m.themeNames[m.themeIndex]]
+}
+
+// toggleDiffView cycles through diff view modes: auto -> split -> unified -> auto
+func (m *Model) toggleDiffView() {
+	if m.forcedDiffViewMode == nil {
+		// Currently auto - switch to split
+		trueVal := true
+		m.forcedDiffViewMode = &trueVal
+	} else if *m.forcedDiffViewMode {
+		// Currently split - switch to unified
+		falseVal := false
+		m.forcedDiffViewMode = &falseVal
+	} else {
+		// Currently unified - switch to auto
+		m.forcedDiffViewMode = nil
+	}
 }
 
 // panelShortHelp returns a slice of key.Binding for the focused Panel.
