@@ -165,15 +165,7 @@ func calculateMaxLineNumber(rows []diffRow) int {
 }
 
 // renderSplitDiffView renders a GitHub-style split-view diff with line numbers and a separator.
-//
-// FIX SUMMARY (gap between panels):
-//  1. All content styles use NO padding (Padding(0,0)) — padding was causing extra width that
-//     pushed the separator away. Content is space-padded manually via Width() instead.
-//  2. The separator style has NO margin, NO padding, and is exactly Width(1).
-//  3. Each half-panel is composed as a fixed-width block with Width(columnWidth) so that
-//     lipgloss.JoinHorizontal sees exact widths and produces zero gap.
-//  4. lineNumStyle, contentStyle, and the half-panel wrapper all use explicit Width so the
-//     total always equals columnWidth on each side.
+
 func renderSplitDiffView(rows []diffRow, columnWidth int, theme Theme) string {
 	if columnWidth < 20 {
 		return ""
@@ -189,12 +181,13 @@ func renderSplitDiffView(rows []diffRow, columnWidth int, theme Theme) string {
 		}
 	}
 
-	// Layout per half: [lineNum(lineNumWidth)] [content(contentColWidth)]
-	// Total = lineNumWidth + contentColWidth = columnWidth  (no separator chars inside a half)
-	contentColWidth := columnWidth - lineNumWidth
+	// Layout per half: [lineNum(lineNumWidth)] [space(1)] [content(contentColWidth)]
+	// Total = lineNumWidth + 1 + contentColWidth = columnWidth
+	// Reserve 1 char for spacing between line number and content
+	contentColWidth := columnWidth - lineNumWidth - 1
 
-	// Separator: exactly 1 character wide, same color as active border, zero padding/margin.
-	separatorColor := theme.ActiveBorder.Style.GetBorderLeftForeground()
+	// Separator: exactly 1 character wide, same color as inactive border (matches panel borders), zero padding/margin.
+	separatorColor := theme.InactiveBorder.Style.GetForeground()
 	separatorStyle := lipgloss.NewStyle().
 		Width(1).
 		Foreground(separatorColor)
@@ -214,7 +207,87 @@ func renderSplitDiffView(rows []diffRow, columnWidth int, theme Theme) string {
 		return lineNumStyle.Render("")
 	}
 
-	// Content styles: NO padding, fixed width so the half-panel total is exact.
+	// Helper function to wrap text to fit within contentColWidth.
+	// Tries to wrap on word boundaries; only splits inside a word when it alone
+	// is longer than the available width.
+	wrapText := func(text string, width int) []string {
+		if width <= 0 {
+			return []string{""}
+		}
+
+		// We already store diff content without ANSI codes in diffRow, but strip
+		// again defensively in case future changes introduce styling here.
+		cleaned := stripAnsi(text)
+		runes := []rune(cleaned)
+		if len(runes) <= width {
+			return []string{cleaned}
+		}
+
+		words := strings.Fields(cleaned)
+		if len(words) == 0 {
+			return []string{""}
+		}
+
+		var (
+			lines       []string
+			currentLine []rune
+			lineLen     int
+		)
+
+		flushLine := func() {
+			if len(currentLine) > 0 {
+				lines = append(lines, string(currentLine))
+				currentLine = currentLine[:0]
+				lineLen = 0
+			}
+		}
+
+		for _, w := range words {
+			wordRunes := []rune(w)
+			wordLen := len(wordRunes)
+
+			// If the word itself is longer than the width, we need to hard-wrap it.
+			if wordLen > width {
+				// First, flush any existing content on the current line.
+				flushLine()
+
+				for start := 0; start < wordLen; start += width {
+					end := start + width
+					if end > wordLen {
+						end = wordLen
+					}
+					lines = append(lines, string(wordRunes[start:end]))
+				}
+				continue
+			}
+
+			// If this word (plus a space when needed) doesn't fit on the current line,
+			// start a new line.
+			additional := wordLen
+			if lineLen > 0 {
+				additional++ // space
+			}
+			if lineLen+additional > width {
+				flushLine()
+			}
+
+			if lineLen > 0 {
+				currentLine = append(currentLine, ' ')
+				lineLen++
+			}
+			currentLine = append(currentLine, wordRunes...)
+			lineLen += wordLen
+		}
+
+		flushLine()
+
+		if len(lines) == 0 {
+			return []string{""}
+		}
+		return lines
+	}
+
+	// Content styles: NO padding, fixed width with wrapping so the half-panel total is exact.
 	// Background color is applied only; width controls the column, not padding.
 	addedStyle := theme.GitStaged.
 		Width(contentColWidth).
@@ -237,9 +310,11 @@ func renderSplitDiffView(rows []diffRow, columnWidth int, theme Theme) string {
 		Width(columnWidth).
 		MaxWidth(columnWidth)
 
-	// buildHalf assembles [lineNum][content] into a fixed-width columnWidth string.
+	// buildHalf assembles [lineNum][space][content] into a fixed-width columnWidth string.
 	buildHalf := func(lineNum string, content string) string {
-		return lipgloss.JoinHorizontal(lipgloss.Top, lineNum, content)
+		// Add a space between line number and content
+		spacer := " "
+		return lipgloss.JoinHorizontal(lipgloss.Top, lineNum, spacer, content)
 	}
 
 	var renderedRows []string
@@ -252,28 +327,95 @@ func renderSplitDiffView(rows []diffRow, columnWidth int, theme Theme) string {
 			// Left half holds the header text; right half is blank.
 			left := headerStyle.Render(stripAnsi(row.rawLine))
 			right := lipgloss.NewStyle().Width(columnWidth).Render("")
-			combined := lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right)
+			gap := " "
+			combined := lipgloss.JoinHorizontal(lipgloss.Top, left, gap, sep, gap, right)
 			renderedRows = append(renderedRows, combined)
 
 		case lineTypeRemoved:
-			left := buildHalf(renderLineNum(row.oldLineNum), removedStyle.Render(row.oldLine))
-			right := buildHalf(renderLineNum(0), emptyStyle.Render(""))
-			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right))
+			// Wrap the old line if needed
+			wrappedOld := wrapText(row.oldLine, contentColWidth)
+			for i, line := range wrappedOld {
+				lineNum := renderLineNum(0)
+				if i == 0 {
+					lineNum = renderLineNum(row.oldLineNum)
+				}
+				left := buildHalf(lineNum, removedStyle.Render(line))
+				right := buildHalf(renderLineNum(0), emptyStyle.Render(""))
+				gap := " "
+				renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, gap, sep, gap, right))
+			}
 
 		case lineTypeAdded:
-			left := buildHalf(renderLineNum(0), emptyStyle.Render(""))
-			right := buildHalf(renderLineNum(row.newLineNum), addedStyle.Render(row.newLine))
-			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right))
+			// Wrap the new line if needed
+			wrappedNew := wrapText(row.newLine, contentColWidth)
+			for i, line := range wrappedNew {
+				lineNum := renderLineNum(0)
+				if i == 0 {
+					lineNum = renderLineNum(row.newLineNum)
+				}
+				left := buildHalf(renderLineNum(0), emptyStyle.Render(""))
+				right := buildHalf(lineNum, addedStyle.Render(line))
+				gap := " "
+				renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, gap, sep, gap, right))
+			}
 
 		case lineTypeContext:
-			left := buildHalf(renderLineNum(row.oldLineNum), contextStyle.Render(row.oldLine))
-			right := buildHalf(renderLineNum(row.newLineNum), contextStyle.Render(row.newLine))
-			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right))
+			// Wrap both old and new lines if needed
+			wrappedOld := wrapText(row.oldLine, contentColWidth)
+			wrappedNew := wrapText(row.newLine, contentColWidth)
+			maxLines := len(wrappedOld)
+			if len(wrappedNew) > maxLines {
+				maxLines = len(wrappedNew)
+			}
+			for i := 0; i < maxLines; i++ {
+				oldLineNum := renderLineNum(0)
+				newLineNum := renderLineNum(0)
+				if i == 0 {
+					oldLineNum = renderLineNum(row.oldLineNum)
+					newLineNum = renderLineNum(row.newLineNum)
+				}
+				oldLine := ""
+				newLine := ""
+				if i < len(wrappedOld) {
+					oldLine = wrappedOld[i]
+				}
+				if i < len(wrappedNew) {
+					newLine = wrappedNew[i]
+				}
+				left := buildHalf(oldLineNum, contextStyle.Render(oldLine))
+				right := buildHalf(newLineNum, contextStyle.Render(newLine))
+				gap := " "
+				renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, gap, sep, gap, right))
+			}
 
 		default:
-			left := buildHalf(renderLineNum(row.oldLineNum), contextStyle.Render(row.oldLine))
-			right := buildHalf(renderLineNum(row.newLineNum), contextStyle.Render(row.newLine))
-			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right))
+			// Wrap both old and new lines if needed
+			wrappedOld := wrapText(row.oldLine, contentColWidth)
+			wrappedNew := wrapText(row.newLine, contentColWidth)
+			maxLines := len(wrappedOld)
+			if len(wrappedNew) > maxLines {
+				maxLines = len(wrappedNew)
+			}
+			for i := 0; i < maxLines; i++ {
+				oldLineNum := renderLineNum(0)
+				newLineNum := renderLineNum(0)
+				if i == 0 {
+					oldLineNum = renderLineNum(row.oldLineNum)
+					newLineNum = renderLineNum(row.newLineNum)
+				}
+				oldLine := ""
+				newLine := ""
+				if i < len(wrappedOld) {
+					oldLine = wrappedOld[i]
+				}
+				if i < len(wrappedNew) {
+					newLine = wrappedNew[i]
+				}
+				left := buildHalf(oldLineNum, contextStyle.Render(oldLine))
+				right := buildHalf(newLineNum, contextStyle.Render(newLine))
+				gap := " "
+				renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, left, gap, sep, gap, right))
+			}
 		}
 	}
 
@@ -287,19 +429,27 @@ func renderAdaptiveDiffView(content string, width int, theme Theme, forcedViewMo
 	}
 
 	const splitViewThreshold = 80
+	const minSplitViewWidth = 40
 
 	useSplitView := false
 	if forcedViewMode != nil {
+		// When forced mode is set, respect it if width allows
 		if *forcedViewMode {
-			useSplitView = width >= 40
+			// Split view requested - use it if width is sufficient
+			useSplitView = width >= minSplitViewWidth
+		} else {
+			// Unified view explicitly requested - always use unified
+			useSplitView = false
 		}
 	} else {
+		// Auto mode - use split view only if width is sufficient
 		useSplitView = width >= splitViewThreshold && width > 60
 	}
 
-	if useSplitView && width > 40 {
-		// columnWidth = (total - 1 separator) / 2
-		columnWidth := (width - 1) / 2
+	if useSplitView && width >= minSplitViewWidth {
+		// Layout: [left(columnWidth)] [space] [separator] [space] [right(columnWidth)]
+		// Total width = 2*columnWidth + 3
+		columnWidth := (width - 3) / 2
 		rows := parseDiffStructure(content)
 		splitView := renderSplitDiffView(rows, columnWidth, theme)
 		if splitView != "" {
