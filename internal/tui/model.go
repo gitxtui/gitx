@@ -49,6 +49,8 @@ type Model struct {
 	confirmCallback  func(bool) tea.Cmd
 	// New fields for command history
 	CommandHistory []string
+	// Diff view mode: nil = auto (respects threshold), true = split, false = unified
+	forcedDiffViewMode *bool
 }
 
 // initialModel creates the initial state of the application.
@@ -99,22 +101,23 @@ func initialModel() Model {
 	historyVP.SetContent("Command history will appear here...")
 
 	return Model{
-		theme:             Themes[selectedThemeName],
-		themeNames:        themeNames,
-		themeIndex:        indexOf(themeNames, selectedThemeName),
-		focusedPanel:      StatusPanel,
-		activeSourcePanel: StatusPanel,
-		help:              help.New(),
-		helpViewport:      viewport.New(0, 0),
-		showHelp:          false,
-		git:               gc,
-		repoName:          repoName,
-		branchName:        branchName,
-		panels:            panels,
-		mode:              modeNormal,
-		textInput:         ti,
-		descriptionInput:  ta,
-		CommandHistory:    []string{},
+		theme:              Themes[selectedThemeName],
+		themeNames:         themeNames,
+		themeIndex:         indexOf(themeNames, selectedThemeName),
+		focusedPanel:       StatusPanel,
+		activeSourcePanel:  StatusPanel,
+		help:               help.New(),
+		helpViewport:       viewport.New(0, 0),
+		showHelp:           false,
+		git:                gc,
+		repoName:           repoName,
+		branchName:         branchName,
+		panels:             panels,
+		mode:               modeNormal,
+		textInput:          ti,
+		descriptionInput:   ta,
+		CommandHistory:     []string{},
+		forcedDiffViewMode: nil,
 	}
 }
 
@@ -145,6 +148,44 @@ func (m Model) Init() tea.Cmd {
 func (m *Model) nextTheme() {
 	m.themeIndex = (m.themeIndex + 1) % len(m.themeNames)
 	m.theme = Themes[m.themeNames[m.themeIndex]]
+}
+
+// toggleDiffView cycles through diff view modes with behavior that matches the
+// currently visible layout:
+//   - If we're in auto mode, pressing the key switches to the *opposite* of what
+//     auto currently resolves to (so from an auto-split view you go directly to
+//     forced unified, and from auto-unified you go to forced split).
+//   - If we're already in a forced mode, we keep the original cycle:
+//       split -> unified -> auto.
+func (m *Model) toggleDiffView() {
+	const splitViewThreshold = 80
+
+	if m.forcedDiffViewMode == nil {
+		// Auto mode: determine what the main panel would currently do,
+		// then toggle to the opposite.
+
+		// This mirrors the width calculation used in updateMainPanel for the
+		// right-hand (main) panel content.
+		rightPanelWidth := int(float64(m.width)*(1-leftPanelWidthRatio)) - borderWidth - 2
+		useSplitAuto := rightPanelWidth >= splitViewThreshold && rightPanelWidth > 60
+
+		if useSplitAuto {
+			// Auto would render split; user expects a single press to go to unified.
+			falseVal := false
+			m.forcedDiffViewMode = &falseVal
+		} else {
+			// Auto would render unified; user expects a single press to go to split.
+			trueVal := true
+			m.forcedDiffViewMode = &trueVal
+		}
+	} else if *m.forcedDiffViewMode {
+		// Currently forced split - switch to forced unified.
+		falseVal := false
+		m.forcedDiffViewMode = &falseVal
+	} else {
+		// Currently forced unified - switch back to auto.
+		m.forcedDiffViewMode = nil
+	}
 }
 
 // panelShortHelp returns a slice of key.Binding for the focused Panel.

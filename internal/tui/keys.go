@@ -12,6 +12,9 @@ type KeyMap struct {
 	// keybindings for changing theme
 	SwitchTheme key.Binding
 
+	// keybindings for diff view
+	ToggleDiffView key.Binding
+
 	// keybindings for navigation
 	FocusNext  key.Binding
 	FocusPrev  key.Binding
@@ -89,7 +92,7 @@ func (k KeyMap) FullHelp() []HelpSection {
 		},
 		{
 			Title:    "Misc",
-			Bindings: []key.Binding{k.SwitchTheme, k.ToggleHelp, k.Escape, k.Quit},
+			Bindings: []key.Binding{k.SwitchTheme, k.ToggleDiffView, k.ToggleHelp, k.Escape, k.Quit},
 		},
 	}
 }
@@ -149,6 +152,12 @@ func DefaultKeyMap() KeyMap {
 		SwitchTheme: key.NewBinding(
 			key.WithKeys("ctrl+t"),
 			key.WithHelp("<c+t>", "switch theme"),
+		),
+
+		// diff view
+		ToggleDiffView: key.NewBinding(
+			key.WithKeys("ctrl+d"),
+			key.WithHelp("<c+d>", "toggle diff view"),
 		),
 
 		// navigation
