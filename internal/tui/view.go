@@ -38,6 +38,11 @@ const (
 	lineTypeHunkHeader
 )
 
+const (
+	splitViewThreshold = 80
+	minSplitViewWidth  = 40
+)
+
 // diffRow represents a single row in the structured diff.
 type diffRow struct {
 	lineType   diffLineType
@@ -207,9 +212,8 @@ func renderSplitDiffView(rows []diffRow, columnWidth int, theme Theme) string {
 		return lineNumStyle.Render("")
 	}
 
-	// Helper function to wrap text to fit within contentColWidth.
-	// Tries to wrap on word boundaries; only splits inside a word when it alone
-	// is longer than the available width.
+	// Helper function to wrap text to fit within contentColWidth while preserving
+	// original whitespace exactly (indentation, multiple spaces, trailing spaces).
 	wrapText := func(text string, width int) []string {
 		if width <= 0 {
 			return []string{""}
@@ -223,66 +227,13 @@ func renderSplitDiffView(rows []diffRow, columnWidth int, theme Theme) string {
 			return []string{cleaned}
 		}
 
-		words := strings.Fields(cleaned)
-		if len(words) == 0 {
-			return []string{""}
-		}
-
-		var (
-			lines       []string
-			currentLine []rune
-			lineLen     int
-		)
-
-		flushLine := func() {
-			if len(currentLine) > 0 {
-				lines = append(lines, string(currentLine))
-				currentLine = currentLine[:0]
-				lineLen = 0
+		lines := make([]string, 0, (len(runes)+width-1)/width)
+		for start := 0; start < len(runes); start += width {
+			end := start + width
+			if end > len(runes) {
+				end = len(runes)
 			}
-		}
-
-		for _, w := range words {
-			wordRunes := []rune(w)
-			wordLen := len(wordRunes)
-
-			// If the word itself is longer than the width, we need to hard-wrap it.
-			if wordLen > width {
-				// First, flush any existing content on the current line.
-				flushLine()
-
-				for start := 0; start < wordLen; start += width {
-					end := start + width
-					if end > wordLen {
-						end = wordLen
-					}
-					lines = append(lines, string(wordRunes[start:end]))
-				}
-				continue
-			}
-
-			// If this word (plus a space when needed) doesn't fit on the current line,
-			// start a new line.
-			additional := wordLen
-			if lineLen > 0 {
-				additional++ // space
-			}
-			if lineLen+additional > width {
-				flushLine()
-			}
-
-			if lineLen > 0 {
-				currentLine = append(currentLine, ' ')
-				lineLen++
-			}
-			currentLine = append(currentLine, wordRunes...)
-			lineLen += wordLen
-		}
-
-		flushLine()
-
-		if len(lines) == 0 {
-			return []string{""}
+			lines = append(lines, string(runes[start:end]))
 		}
 		return lines
 	}
@@ -427,9 +378,6 @@ func renderAdaptiveDiffView(content string, width int, theme Theme, forcedViewMo
 	if !strings.Contains(content, "diff --git") && !strings.Contains(content, "@@") {
 		return content
 	}
-
-	const splitViewThreshold = 80
-	const minSplitViewWidth = 40
 
 	useSplitView := false
 	if forcedViewMode != nil {

@@ -198,6 +198,94 @@ func TestModel_HelpToggle(t *testing.T) {
 	})
 }
 
+func TestModel_ToggleDiffViewKeyCycle(t *testing.T) {
+	m := initialModel()
+
+	pressToggle := func() {
+		updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
+		m = updatedModel.(Model)
+	}
+
+	assertMode := func(expected *bool) {
+		t.Helper()
+		if expected == nil {
+			if m.forcedDiffViewMode != nil {
+				t.Fatalf("expected auto mode (nil), got forced=%v", *m.forcedDiffViewMode)
+			}
+			return
+		}
+
+		if m.forcedDiffViewMode == nil {
+			t.Fatalf("expected forced mode %v, got auto mode", *expected)
+		}
+		if *m.forcedDiffViewMode != *expected {
+			t.Fatalf("expected forced mode %v, got %v", *expected, *m.forcedDiffViewMode)
+		}
+	}
+
+	trueVal := true
+	falseVal := false
+
+	assertMode(nil)
+	pressToggle()
+	assertMode(&trueVal)
+	pressToggle()
+	assertMode(&falseVal)
+	pressToggle()
+	assertMode(nil)
+}
+
+func TestRenderAdaptiveDiffView_ModeResolution(t *testing.T) {
+	m := initialModel()
+	theme := m.theme
+	diffContent := "diff --git a/test.py b/test.py\n@@ -1 +1 @@\n-    value = \"a\"   \n+    value = \"b\"   \n"
+
+	t.Run("auto uses split at threshold", func(t *testing.T) {
+		out := renderAdaptiveDiffView(diffContent, splitViewThreshold, theme, nil)
+		if !strings.Contains(out, "│") {
+			t.Fatalf("expected split output with divider")
+		}
+	})
+
+	t.Run("auto uses unified below threshold", func(t *testing.T) {
+		out := renderAdaptiveDiffView(diffContent, splitViewThreshold-1, theme, nil)
+		if out != styleDiffContent(diffContent, theme) {
+			t.Fatalf("expected unified output below split threshold")
+		}
+	})
+
+	t.Run("forced split falls back when too narrow", func(t *testing.T) {
+		forcedSplit := true
+		out := renderAdaptiveDiffView(diffContent, minSplitViewWidth-1, theme, &forcedSplit)
+		if out != styleDiffContent(diffContent, theme) {
+			t.Fatalf("expected unified fallback when forced split is too narrow")
+		}
+	})
+
+	t.Run("forced unified stays unified when wide", func(t *testing.T) {
+		forcedUnified := false
+		out := renderAdaptiveDiffView(diffContent, splitViewThreshold+20, theme, &forcedUnified)
+		if out != styleDiffContent(diffContent, theme) {
+			t.Fatalf("expected unified output in forced unified mode")
+		}
+	})
+}
+
+func TestRenderAdaptiveDiffView_PreservesWhitespaceInSplit(t *testing.T) {
+	m := initialModel()
+	theme := m.theme
+	forcedSplit := true
+	diffContent := "diff --git a/test.py b/test.py\n@@ -1 +1 @@\n-    value = \"a\"   \n+    value = \"b\"   \n"
+
+	out := renderAdaptiveDiffView(diffContent, splitViewThreshold+20, theme, &forcedSplit)
+	if !strings.Contains(out, "    value = \"a\"   ") {
+		t.Fatalf("expected removed line indentation/trailing spaces to be preserved")
+	}
+	if !strings.Contains(out, "    value = \"b\"   ") {
+		t.Fatalf("expected added line indentation/trailing spaces to be preserved")
+	}
+}
+
 func TestModel_MouseFocus(t *testing.T) {
 	zone.NewGlobal()
 	defer zone.Close()
