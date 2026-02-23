@@ -220,6 +220,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, keys.SwitchTheme):
 			m.nextTheme()
 
+		case key.Matches(msg, keys.ToggleDiffView):
+			m.toggleDiffView()
+			cmd = m.updateMainPanel()
+			cmds = append(cmds, cmd)
+
 		case key.Matches(msg, keys.FocusNext), key.Matches(msg, keys.FocusPrev),
 			key.Matches(msg, keys.FocusZero), key.Matches(msg, keys.FocusOne),
 			key.Matches(msg, keys.FocusTwo), key.Matches(msg, keys.FocusThree),
@@ -502,7 +507,7 @@ func (m *Model) updateMainPanel() tea.Cmd {
 		// Apply adaptive visual styling: split-view for wide terminals, unified for narrow ones
 		// Calculate right panel width (approximately 65% of total width minus borders)
 		rightPanelWidth := int(float64(m.width)*(1-leftPanelWidthRatio)) - borderWidth - 2
-		content = renderAdaptiveDiffView(content, rightPanelWidth, m.theme)
+		content = renderAdaptiveDiffView(content, rightPanelWidth, m.theme, m.forcedDiffViewMode)
 		return mainContentUpdatedMsg{content: content}
 	}
 }
