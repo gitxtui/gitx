@@ -657,35 +657,28 @@ func (m *Model) handleFilesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 		}
 
 	case key.Matches(msg, keys.StageItem):
-		return tea.Batch(
-			func() tea.Msg {
-				var cmdStr string
-				var err error
-				if status[0] == ' ' || status[0] == '?' {
-					_, cmdStr, err = m.git.AddFiles([]string{filePath})
-				} else {
-					_, cmdStr, err = m.git.ResetFiles([]string{filePath})
-				}
-				if err != nil {
-					return errMsg{err}
-				}
-				return commandExecutedMsg{cmdStr}
-			},
-			m.fetchPanelContent(FilesPanel),
-			m.fetchPanelContent(StatusPanel),
-		)
+		return func() tea.Msg {
+			var cmdStr string
+			var err error
+			if status[0] == ' ' || status[0] == '?' {
+				_, cmdStr, err = m.git.AddFiles([]string{filePath})
+			} else {
+				_, cmdStr, err = m.git.ResetFiles([]string{filePath})
+			}
+			if err != nil {
+				return errMsg{err}
+			}
+			return commandExecutedMsg{cmdStr}
+		}
 
 	case key.Matches(msg, keys.StageAll):
-		return tea.Batch(
-			func() tea.Msg {
-				_, cmdStr, err := m.git.AddFiles([]string{"."})
-				if err != nil {
-					return errMsg{err}
-				}
-				return commandExecutedMsg{cmdStr}
-			},
-			m.fetchPanelContent(FilesPanel),
-		)
+		return func() tea.Msg {
+			_, cmdStr, err := m.git.AddFiles([]string{"."})
+			if err != nil {
+				return errMsg{err}
+			}
+			return commandExecutedMsg{cmdStr}
+		}
 
 	case key.Matches(msg, keys.Discard):
 		m.mode = modeConfirm
@@ -708,17 +701,13 @@ func (m *Model) handleFilesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 		}
 
 	case key.Matches(msg, keys.StashAll):
-		return tea.Batch(
-			func() tea.Msg {
-				_, cmdStr, err := m.git.StashAll()
-				if err != nil {
-					return errMsg{err}
-				}
-				return commandExecutedMsg{cmdStr}
-			},
-			m.fetchPanelContent(FilesPanel),
-			m.fetchPanelContent(StashPanel),
-		)
+		return func() tea.Msg {
+			_, cmdStr, err := m.git.StashAll()
+			if err != nil {
+				return errMsg{err}
+			}
+			return commandExecutedMsg{cmdStr}
+		}
 	}
 	return nil
 }
@@ -740,18 +729,13 @@ func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 
 	switch {
 	case key.Matches(msg, keys.Checkout):
-		return tea.Batch(
-			func() tea.Msg {
-				_, cmdStr, err := m.git.Checkout(branchName)
-				if err != nil {
-					return errMsg{err}
-				}
-				return commandExecutedMsg{cmdStr}
-			},
-			m.fetchPanelContent(StatusPanel),
-			m.fetchPanelContent(BranchesPanel),
-			m.fetchPanelContent(CommitsPanel),
-		)
+		return func() tea.Msg {
+			_, cmdStr, err := m.git.Checkout(branchName)
+			if err != nil {
+				return errMsg{err}
+			}
+			return commandExecutedMsg{cmdStr}
+		}
 
 	case key.Matches(msg, keys.NewBranch):
 		m.mode = modeInput
@@ -909,30 +893,22 @@ func (m *Model) handleStashPanelKeys(msg tea.KeyMsg) tea.Cmd {
 
 	switch {
 	case key.Matches(msg, keys.StashApply):
-		return tea.Batch(
-			func() tea.Msg {
-				_, cmdStr, err := m.git.Stash(git.StashOptions{Apply: true, StashID: stashID})
-				if err != nil {
-					return errMsg{err}
-				}
-				return commandExecutedMsg{cmdStr}
-			},
-			m.fetchPanelContent(FilesPanel),
-			m.fetchPanelContent(StashPanel),
-		)
+		return func() tea.Msg {
+			_, cmdStr, err := m.git.Stash(git.StashOptions{Apply: true, StashID: stashID})
+			if err != nil {
+				return errMsg{err}
+			}
+			return commandExecutedMsg{cmdStr}
+		}
 
 	case key.Matches(msg, keys.StashPop):
-		return tea.Batch(
-			func() tea.Msg {
-				_, cmdStr, err := m.git.Stash(git.StashOptions{Pop: true, StashID: stashID})
-				if err != nil {
-					return errMsg{err}
-				}
-				return commandExecutedMsg{cmdStr}
-			},
-			m.fetchPanelContent(FilesPanel),
-			m.fetchPanelContent(StashPanel),
-		)
+		return func() tea.Msg {
+			_, cmdStr, err := m.git.Stash(git.StashOptions{Pop: true, StashID: stashID})
+			if err != nil {
+				return errMsg{err}
+			}
+			return commandExecutedMsg{cmdStr}
+		}
 
 	case key.Matches(msg, keys.StashDrop):
 		m.mode = modeConfirm
