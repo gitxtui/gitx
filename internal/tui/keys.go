@@ -1,6 +1,11 @@
 package tui
 
-import "github.com/charmbracelet/bubbles/key"
+import (
+	"log"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/key"
+)
 
 // KeyMap defines the keybindings for the application.
 type KeyMap struct {
@@ -266,4 +271,106 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("d", "Drop"),
 		),
 	}
+}
+
+// KeyMapFromConfig returns keybindings with user overrides applied on top of defaults.
+func KeyMapFromConfig(overrides map[string]string) KeyMap {
+	resolved := DefaultKeyMap()
+	for action, configured := range overrides {
+		keys, ok := parseConfiguredKeys(configured)
+		if !ok {
+			log.Printf("invalid keybinding for %q: empty value, using default", action)
+			continue
+		}
+
+		switch action {
+		case "quit":
+			resolved.Quit = overrideBinding(resolved.Quit, keys)
+		case "escape":
+			resolved.Escape = overrideBinding(resolved.Escape, keys)
+		case "toggle_help":
+			resolved.ToggleHelp = overrideBinding(resolved.ToggleHelp, keys)
+		case "switch_theme":
+			resolved.SwitchTheme = overrideBinding(resolved.SwitchTheme, keys)
+		case "focus_next":
+			resolved.FocusNext = overrideBinding(resolved.FocusNext, keys)
+		case "focus_prev":
+			resolved.FocusPrev = overrideBinding(resolved.FocusPrev, keys)
+		case "focus_main":
+			resolved.FocusZero = overrideBinding(resolved.FocusZero, keys)
+		case "focus_status":
+			resolved.FocusOne = overrideBinding(resolved.FocusOne, keys)
+		case "focus_files":
+			resolved.FocusTwo = overrideBinding(resolved.FocusTwo, keys)
+		case "focus_branches":
+			resolved.FocusThree = overrideBinding(resolved.FocusThree, keys)
+		case "focus_commits":
+			resolved.FocusFour = overrideBinding(resolved.FocusFour, keys)
+		case "focus_stash":
+			resolved.FocusFive = overrideBinding(resolved.FocusFive, keys)
+		case "focus_command_log":
+			resolved.FocusSix = overrideBinding(resolved.FocusSix, keys)
+		case "up":
+			resolved.Up = overrideBinding(resolved.Up, keys)
+		case "down":
+			resolved.Down = overrideBinding(resolved.Down, keys)
+		case "stage_item":
+			resolved.StageItem = overrideBinding(resolved.StageItem, keys)
+		case "stage_all":
+			resolved.StageAll = overrideBinding(resolved.StageAll, keys)
+		case "discard":
+			resolved.Discard = overrideBinding(resolved.Discard, keys)
+		case "stash":
+			resolved.Stash = overrideBinding(resolved.Stash, keys)
+		case "stash_all":
+			resolved.StashAll = overrideBinding(resolved.StashAll, keys)
+		case "commit":
+			resolved.Commit = overrideBinding(resolved.Commit, keys)
+		case "checkout", "open":
+			resolved.Checkout = overrideBinding(resolved.Checkout, keys)
+		case "new_branch":
+			resolved.NewBranch = overrideBinding(resolved.NewBranch, keys)
+		case "delete_branch":
+			resolved.DeleteBranch = overrideBinding(resolved.DeleteBranch, keys)
+		case "rename_branch":
+			resolved.RenameBranch = overrideBinding(resolved.RenameBranch, keys)
+		case "amend_commit":
+			resolved.AmendCommit = overrideBinding(resolved.AmendCommit, keys)
+		case "revert":
+			resolved.Revert = overrideBinding(resolved.Revert, keys)
+		case "reset_to_commit":
+			resolved.ResetToCommit = overrideBinding(resolved.ResetToCommit, keys)
+		case "stash_apply":
+			resolved.StashApply = overrideBinding(resolved.StashApply, keys)
+		case "stash_pop":
+			resolved.StashPop = overrideBinding(resolved.StashPop, keys)
+		case "stash_drop":
+			resolved.StashDrop = overrideBinding(resolved.StashDrop, keys)
+		default:
+			log.Printf("unknown keybinding action %q, ignoring", action)
+		}
+	}
+
+	return resolved
+}
+
+func overrideBinding(current key.Binding, keys []string) key.Binding {
+	desc := current.Help().Desc
+	helpKey := strings.Join(keys, "/")
+	return key.NewBinding(
+		key.WithKeys(keys...),
+		key.WithHelp(helpKey, desc),
+	)
+}
+
+func parseConfiguredKeys(configured string) ([]string, bool) {
+	parts := strings.Split(configured, ",")
+	keys := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			keys = append(keys, trimmed)
+		}
+	}
+	return keys, len(keys) > 0
 }

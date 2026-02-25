@@ -54,7 +54,11 @@ type Model struct {
 // initialModel creates the initial state of the application.
 func initialModel() Model {
 	themeNames := ThemeNames() //built-in themes load
-	cfg, _ := load_config()
+	cfg, err := load_config()
+	if err != nil {
+		cfg = &appConfig{Theme: DefaultThemeName}
+	}
+	keys = KeyMapFromConfig(cfg.Keybindings)
 
 	var selectedThemeName string
 	if t, ok := Themes[cfg.Theme]; ok {

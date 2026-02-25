@@ -152,8 +152,10 @@ type TreeStyle struct {
 }
 
 // config.toml
-type themeConfig struct {
-	Theme string `toml:"theme"`
+type appConfig struct {
+	Theme       string            `toml:"theme"`
+	Keybindings map[string]string `toml:"keybindings"`
+	
 }
 
 // custom_theme.toml
@@ -244,10 +246,10 @@ func ThemeNames() []string {
 	return names
 }
 
-func load_config() (*themeConfig, error) {
+func load_config() (*appConfig, error) {
 	cfgPath := ConfigFilePath
 
-	var cfg themeConfig
+	var cfg appConfig
 	if _, err := toml.DecodeFile(cfgPath, &cfg); err != nil {
 		return nil, err
 	}

@@ -181,6 +181,45 @@ func TestModel_contextualHelp(t *testing.T) {
 	})
 }
 
+func TestKeyMapFromConfig_OverridesAndFallback(t *testing.T) {
+	defaults := DefaultKeyMap()
+	resolved := KeyMapFromConfig(map[string]string{
+		"quit": "x",
+	})
+
+	if got := resolved.Quit.Keys(); len(got) != 1 || got[0] != "x" {
+		t.Fatalf("expected quit key to be overridden to x, got %v", got)
+	}
+
+	if got, want := resolved.Up.Keys(), defaults.Up.Keys(); !sameKeys(got, want) {
+		t.Fatalf("expected unspecified keybinding to fallback to default, got %v want %v", got, want)
+	}
+}
+
+func TestKeyMapFromConfig_MultiKeyValue(t *testing.T) {
+	resolved := KeyMapFromConfig(map[string]string{
+		"quit": "x,ctrl+c",
+	})
+
+	got := resolved.Quit.Keys()
+	if len(got) != 2 || got[0] != "x" || got[1] != "ctrl+c" {
+		t.Fatalf("expected parsed multi-key binding, got %v", got)
+	}
+}
+
+func TestKeyMapFromConfig_InvalidValueUsesDefault(t *testing.T) {
+	defaults := DefaultKeyMap()
+	resolved := KeyMapFromConfig(map[string]string{
+		"quit": "   ",
+	})
+
+	got := resolved.Quit.Keys()
+	want := defaults.Quit.Keys()
+	if !sameKeys(got, want) {
+		t.Fatalf("expected invalid override to keep default, got %v want %v", got, want)
+	}
+}
+
 func TestModel_HelpToggle(t *testing.T) {
 	m := initialModel()
 	t.Run("toggles help on", func(t *testing.T) {
@@ -407,4 +446,16 @@ func assertKeyBindingsEqual(t *testing.T, got, want []key.Binding) {
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("\n\tgot \t%v\n\twant \t%v", got, want)
 	}
+}
+
+func sameKeys(got []string, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
 }
