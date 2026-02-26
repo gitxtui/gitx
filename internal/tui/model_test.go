@@ -173,26 +173,25 @@ func TestModel_KeyFocus(t *testing.T) {
 
 func TestModel_contextualHelp(t *testing.T) {
 	m := initialModel()
-	keys = DefaultKeyMap()
 	t.Run("Files Panel Help", func(t *testing.T) {
 		m.focusedPanel = FilesPanel
 		gotKeys := m.panelShortHelp()
-		assertKeyBindingsEqual(t, gotKeys, keys.FilesPanelHelp())
+		assertKeyBindingsEqual(t, gotKeys, m.keymap.FilesPanelHelp())
 	})
 }
 
 func TestKeyMapFromConfig_OverridesAndFallback(t *testing.T) {
-	defaults := DefaultKeyMap()
+	defaults := DefaultKeybindings()
 	resolved := KeyMapFromConfig(map[string]string{
 		"quit": "x",
 	})
 
-	if got := resolved.Quit.Keys(); len(got) != 1 || got[0] != "x" {
-		t.Fatalf("expected quit key to be overridden to x, got %v", got)
+	if got := resolved["quit"]; got != "x" {
+		t.Fatalf("expected quit key to be overridden to x, got %q", got)
 	}
 
-	if got, want := resolved.Up.Keys(), defaults.Up.Keys(); !sameKeys(got, want) {
-		t.Fatalf("expected unspecified keybinding to fallback to default, got %v want %v", got, want)
+	if got, want := resolved["up"], defaults["up"]; got != want {
+		t.Fatalf("expected unspecified keybinding to fallback to default, got %q want %q", got, want)
 	}
 }
 
@@ -201,22 +200,21 @@ func TestKeyMapFromConfig_MultiKeyValue(t *testing.T) {
 		"quit": "x,ctrl+c",
 	})
 
-	got := resolved.Quit.Keys()
-	if len(got) != 2 || got[0] != "x" || got[1] != "ctrl+c" {
-		t.Fatalf("expected parsed multi-key binding, got %v", got)
+	if got := resolved["quit"]; got != "x,ctrl+c" {
+		t.Fatalf("expected parsed multi-key binding, got %q", got)
 	}
 }
 
 func TestKeyMapFromConfig_InvalidValueUsesDefault(t *testing.T) {
-	defaults := DefaultKeyMap()
+	defaults := DefaultKeybindings()
 	resolved := KeyMapFromConfig(map[string]string{
 		"quit": "   ",
 	})
 
-	got := resolved.Quit.Keys()
-	want := defaults.Quit.Keys()
-	if !sameKeys(got, want) {
-		t.Fatalf("expected invalid override to keep default, got %v want %v", got, want)
+	got := resolved["quit"]
+	want := defaults["quit"]
+	if got != want {
+		t.Fatalf("expected invalid override to keep default, got %q want %q", got, want)
 	}
 }
 
@@ -446,16 +444,4 @@ func assertKeyBindingsEqual(t *testing.T, got, want []key.Binding) {
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("\n\tgot \t%v\n\twant \t%v", got, want)
 	}
-}
-
-func sameKeys(got []string, want []string) bool {
-	if len(got) != len(want) {
-		return false
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			return false
-		}
-	}
-	return true
 }

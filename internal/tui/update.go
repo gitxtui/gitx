@@ -5,14 +5,11 @@ import (
 	"log"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/gitxtui/gitx/internal/git"
 	zone "github.com/lrstanley/bubblezone"
 )
-
-var keys = DefaultKeyMap()
 
 // commandExecutedMsg is sent after a git command has been run successfully.
 type commandExecutedMsg struct {
@@ -194,10 +191,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if m.showHelp {
 			switch {
-			case key.Matches(msg, keys.ToggleHelp):
+			case Matches(msg, m.keymap["toggle_help"]):
 				m.toggleHelp()
 				return m, nil
-			case key.Matches(msg, keys.Escape):
+			case Matches(msg, m.keymap["escape"]):
 				m.toggleHelp()
 				return m, nil
 			default:
@@ -208,23 +205,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch {
-		case key.Matches(msg, keys.Quit):
+		case Matches(msg, m.keymap["quit"]):
 			return m, tea.Quit
 
-		case key.Matches(msg, keys.Escape):
+		case Matches(msg, m.keymap["escape"]):
 			return m, nil
 
-		case key.Matches(msg, keys.ToggleHelp):
+		case Matches(msg, m.keymap["toggle_help"]):
 			m.toggleHelp()
 
-		case key.Matches(msg, keys.SwitchTheme):
+		case Matches(msg, m.keymap["switch_theme"]):
 			m.nextTheme()
 
-		case key.Matches(msg, keys.FocusNext), key.Matches(msg, keys.FocusPrev),
-			key.Matches(msg, keys.FocusZero), key.Matches(msg, keys.FocusOne),
-			key.Matches(msg, keys.FocusTwo), key.Matches(msg, keys.FocusThree),
-			key.Matches(msg, keys.FocusFour), key.Matches(msg, keys.FocusFive),
-			key.Matches(msg, keys.FocusSix):
+		case Matches(msg, m.keymap["focus_next"]), Matches(msg, m.keymap["focus_prev"]),
+			Matches(msg, m.keymap["focus_main"]), Matches(msg, m.keymap["focus_status"]),
+			Matches(msg, m.keymap["focus_files"]), Matches(msg, m.keymap["focus_branches"]),
+			Matches(msg, m.keymap["focus_commits"]), Matches(msg, m.keymap["focus_stash"]),
+			Matches(msg, m.keymap["focus_command_log"]):
 			m.handleFocusKeys(msg)
 		}
 
@@ -596,7 +593,7 @@ func (m *Model) handleCursorMovement(msg tea.KeyMsg) (bool, tea.Cmd) {
 	p := &m.panels[m.focusedPanel]
 	itemSelected := false
 	switch {
-	case key.Matches(msg, keys.Up):
+	case Matches(msg, m.keymap["up"]):
 		if p.cursor > 0 {
 			p.cursor--
 			if p.cursor < p.viewport.YOffset {
@@ -604,7 +601,7 @@ func (m *Model) handleCursorMovement(msg tea.KeyMsg) (bool, tea.Cmd) {
 			}
 			itemSelected = true
 		}
-	case key.Matches(msg, keys.Down):
+	case Matches(msg, m.keymap["down"]):
 		if p.cursor < len(p.lines)-1 {
 			p.cursor++
 			if p.cursor >= p.viewport.YOffset+p.viewport.Height {
@@ -637,7 +634,7 @@ func (m *Model) handleFilesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 	filePath := parts[3]
 
 	switch {
-	case key.Matches(msg, keys.Commit):
+	case Matches(msg, m.keymap["commit"]):
 		m.mode = modeCommit
 		m.textInput.SetValue("")
 		m.descriptionInput.SetValue("")
@@ -656,7 +653,7 @@ func (m *Model) handleFilesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			}
 		}
 
-	case key.Matches(msg, keys.StageItem):
+	case Matches(msg, m.keymap["stage_item"]):
 		return func() tea.Msg {
 			var cmdStr string
 			var err error
@@ -671,7 +668,7 @@ func (m *Model) handleFilesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			return commandExecutedMsg{cmdStr}
 		}
 
-	case key.Matches(msg, keys.StageAll):
+	case Matches(msg, m.keymap["stage_all"]):
 		return func() tea.Msg {
 			_, cmdStr, err := m.git.AddFiles([]string{"."})
 			if err != nil {
@@ -680,7 +677,7 @@ func (m *Model) handleFilesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			return commandExecutedMsg{cmdStr}
 		}
 
-	case key.Matches(msg, keys.Discard):
+	case Matches(msg, m.keymap["discard"]):
 		m.mode = modeConfirm
 		m.confirmMessage = fmt.Sprintf("Discard changes to %s?", filePath)
 		m.confirmCallback = func(confirmed bool) tea.Cmd {
@@ -700,7 +697,7 @@ func (m *Model) handleFilesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			}
 		}
 
-	case key.Matches(msg, keys.StashAll):
+	case Matches(msg, m.keymap["stash_all"]):
 		return func() tea.Msg {
 			_, cmdStr, err := m.git.StashAll()
 			if err != nil {
@@ -728,7 +725,7 @@ func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 	branchName := strings.TrimSpace(strings.TrimPrefix(parts[1], "(*) → "))
 
 	switch {
-	case key.Matches(msg, keys.Checkout):
+	case Matches(msg, m.keymap["checkout"]):
 		return func() tea.Msg {
 			_, cmdStr, err := m.git.Checkout(branchName)
 			if err != nil {
@@ -737,7 +734,7 @@ func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			return commandExecutedMsg{cmdStr}
 		}
 
-	case key.Matches(msg, keys.NewBranch):
+	case Matches(msg, m.keymap["new_branch"]):
 		m.mode = modeInput
 		m.promptTitle = "New Branch Name"
 		m.textInput.SetValue("")
@@ -765,7 +762,7 @@ func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			)
 		}
 
-	case key.Matches(msg, keys.DeleteBranch):
+	case Matches(msg, m.keymap["delete_branch"]):
 		m.mode = modeConfirm
 		m.confirmMessage = fmt.Sprintf("Delete branch %s?", branchName)
 		m.confirmCallback = func(confirmed bool) tea.Cmd {
@@ -782,7 +779,7 @@ func (m *Model) handleBranchesPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			}
 		}
 
-	case key.Matches(msg, keys.RenameBranch):
+	case Matches(msg, m.keymap["rename_branch"]):
 		m.mode = modeInput
 		m.promptTitle = "New Branch Name"
 		m.textInput.SetValue(branchName)
@@ -820,7 +817,7 @@ func (m *Model) handleCommitsPanelKeys(msg tea.KeyMsg) tea.Cmd {
 	sha := parts[1]
 
 	switch {
-	case key.Matches(msg, keys.AmendCommit):
+	case Matches(msg, m.keymap["amend_commit"]):
 		m.mode = modeCommit
 		m.textInput.SetValue("")
 		m.descriptionInput.SetValue("")
@@ -839,7 +836,7 @@ func (m *Model) handleCommitsPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			}
 		}
 
-	case key.Matches(msg, keys.Revert):
+	case Matches(msg, m.keymap["revert"]):
 		m.mode = modeConfirm
 		m.confirmMessage = fmt.Sprintf("Revert commit %s?", sha)
 		m.confirmCallback = func(confirmed bool) tea.Cmd {
@@ -856,7 +853,7 @@ func (m *Model) handleCommitsPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			}
 		}
 
-	case key.Matches(msg, keys.ResetToCommit):
+	case Matches(msg, m.keymap["reset_to_commit"]):
 		m.mode = modeConfirm
 		m.confirmMessage = fmt.Sprintf("Hard reset to commit %s? This will discard all changes!", sha)
 		m.confirmCallback = func(confirmed bool) tea.Cmd {
@@ -892,7 +889,7 @@ func (m *Model) handleStashPanelKeys(msg tea.KeyMsg) tea.Cmd {
 	stashID := parts[0]
 
 	switch {
-	case key.Matches(msg, keys.StashApply):
+	case Matches(msg, m.keymap["stash_apply"]):
 		return func() tea.Msg {
 			_, cmdStr, err := m.git.Stash(git.StashOptions{Apply: true, StashID: stashID})
 			if err != nil {
@@ -901,7 +898,7 @@ func (m *Model) handleStashPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			return commandExecutedMsg{cmdStr}
 		}
 
-	case key.Matches(msg, keys.StashPop):
+	case Matches(msg, m.keymap["stash_pop"]):
 		return func() tea.Msg {
 			_, cmdStr, err := m.git.Stash(git.StashOptions{Pop: true, StashID: stashID})
 			if err != nil {
@@ -910,7 +907,7 @@ func (m *Model) handleStashPanelKeys(msg tea.KeyMsg) tea.Cmd {
 			return commandExecutedMsg{cmdStr}
 		}
 
-	case key.Matches(msg, keys.StashDrop):
+	case Matches(msg, m.keymap["stash_drop"]):
 		m.mode = modeConfirm
 		m.confirmMessage = fmt.Sprintf("Drop stash %s?", stashID)
 		m.confirmCallback = func(confirmed bool) tea.Cmd {
@@ -937,23 +934,23 @@ func (m *Model) handleStashPanelKeys(msg tea.KeyMsg) tea.Cmd {
 // handleFocusKeys changes the focused panel based on keyboard shortcuts.
 func (m *Model) handleFocusKeys(msg tea.KeyMsg) {
 	switch {
-	case key.Matches(msg, keys.FocusNext):
+	case Matches(msg, m.keymap["focus_next"]):
 		m.nextPanel()
-	case key.Matches(msg, keys.FocusPrev):
+	case Matches(msg, m.keymap["focus_prev"]):
 		m.prevPanel()
-	case key.Matches(msg, keys.FocusZero):
+	case Matches(msg, m.keymap["focus_main"]):
 		m.focusedPanel = MainPanel
-	case key.Matches(msg, keys.FocusOne):
+	case Matches(msg, m.keymap["focus_status"]):
 		m.focusedPanel = StatusPanel
-	case key.Matches(msg, keys.FocusTwo):
+	case Matches(msg, m.keymap["focus_files"]):
 		m.focusedPanel = FilesPanel
-	case key.Matches(msg, keys.FocusThree):
+	case Matches(msg, m.keymap["focus_branches"]):
 		m.focusedPanel = BranchesPanel
-	case key.Matches(msg, keys.FocusFour):
+	case Matches(msg, m.keymap["focus_commits"]):
 		m.focusedPanel = CommitsPanel
-	case key.Matches(msg, keys.FocusFive):
+	case Matches(msg, m.keymap["focus_stash"]):
 		m.focusedPanel = StashPanel
-	case key.Matches(msg, keys.FocusSix):
+	case Matches(msg, m.keymap["focus_command_log"]):
 		m.focusedPanel = SecondaryPanel
 	}
 }
