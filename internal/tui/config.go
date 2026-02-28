@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/BurntSushi/toml"
 )
 
 var (
@@ -13,6 +15,23 @@ var (
 	ConfigFilePath      string
 	ConfigThemesDirPath string
 )
+
+// config.toml
+type appConfig struct {
+	Theme       string            `toml:"theme"`
+	Keybindings map[string]string `toml:"keybindings"`
+}
+
+func load_config() (*appConfig, error) {
+	cfgPath := ConfigFilePath
+
+	var cfg appConfig
+	if _, err := toml.DecodeFile(cfgPath, &cfg); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
 
 func initializeConfig() error {
 	homeDir, err := os.UserHomeDir()
@@ -36,7 +55,7 @@ func initializeConfig() error {
 
 	if _, err := os.Stat(ConfigFilePath); err != nil {
 		if os.IsNotExist(err) {
-			defaultConfig := fmt.Sprintf("Theme = %q\n", DefaultThemeName)
+			defaultConfig := fmt.Sprintf("theme = %q\n\n[keybindings]\n", DefaultThemeName)
 			if writeErr := os.WriteFile(ConfigFilePath, []byte(defaultConfig), 0644); writeErr != nil {
 				return fmt.Errorf("failed to create default config file: %w", writeErr)
 			}

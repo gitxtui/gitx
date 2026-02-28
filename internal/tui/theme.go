@@ -151,11 +151,6 @@ type TreeStyle struct {
 	Connector, ConnectorLast, Prefix, PrefixLast string
 }
 
-// config.toml
-type themeConfig struct {
-	Theme string `toml:"theme"`
-}
-
 // custom_theme.toml
 type ThemeFile struct {
 	Fg     string            `toml:"fg"`
@@ -242,17 +237,6 @@ func ThemeNames() []string {
 	}
 	sort.Strings(names)
 	return names
-}
-
-func load_config() (*themeConfig, error) {
-	cfgPath := ConfigFilePath
-
-	var cfg themeConfig
-	if _, err := toml.DecodeFile(cfgPath, &cfg); err != nil {
-		return nil, err
-	}
-
-	return &cfg, nil
 }
 
 func load_custom_theme(name string) (*Palette, error) {

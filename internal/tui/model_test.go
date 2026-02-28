@@ -173,12 +173,49 @@ func TestModel_KeyFocus(t *testing.T) {
 
 func TestModel_contextualHelp(t *testing.T) {
 	m := initialModel()
-	keys = DefaultKeyMap()
 	t.Run("Files Panel Help", func(t *testing.T) {
 		m.focusedPanel = FilesPanel
 		gotKeys := m.panelShortHelp()
-		assertKeyBindingsEqual(t, gotKeys, keys.FilesPanelHelp())
+		assertKeyBindingsEqual(t, gotKeys, m.keymap.FilesPanelHelp())
 	})
+}
+
+func TestKeyMapFromConfig_OverridesAndFallback(t *testing.T) {
+	defaults := DefaultKeybindings()
+	resolved := KeyMapFromConfig(map[string]string{
+		"quit": "x",
+	})
+
+	if got := resolved["quit"]; got != "x" {
+		t.Fatalf("expected quit key to be overridden to x, got %q", got)
+	}
+
+	if got, want := resolved["up"], defaults["up"]; got != want {
+		t.Fatalf("expected unspecified keybinding to fallback to default, got %q want %q", got, want)
+	}
+}
+
+func TestKeyMapFromConfig_MultiKeyValue(t *testing.T) {
+	resolved := KeyMapFromConfig(map[string]string{
+		"quit": "x,ctrl+c",
+	})
+
+	if got := resolved["quit"]; got != "x,ctrl+c" {
+		t.Fatalf("expected parsed multi-key binding, got %q", got)
+	}
+}
+
+func TestKeyMapFromConfig_InvalidValueUsesDefault(t *testing.T) {
+	defaults := DefaultKeybindings()
+	resolved := KeyMapFromConfig(map[string]string{
+		"quit": "   ",
+	})
+
+	got := resolved["quit"]
+	want := defaults["quit"]
+	if got != want {
+		t.Fatalf("expected invalid override to keep default, got %q want %q", got, want)
+	}
 }
 
 func TestModel_HelpToggle(t *testing.T) {

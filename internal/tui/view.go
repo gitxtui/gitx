@@ -232,7 +232,7 @@ func (m Model) renderHelpBar() string {
 	if !m.showHelp {
 		helpBindings = m.panelShortHelp()
 	} else {
-		helpBindings = keys.ShortHelp()
+		helpBindings = m.keymap.ShortHelp()
 	}
 	shortHelp := m.help.ShortHelpView(helpBindings)
 	helpButton := m.theme.HelpButton.Render(" help:? ")
@@ -290,7 +290,7 @@ func renderBox(title string, titleStyle lipgloss.Style, borderStyle BorderStyle,
 
 // generateHelpContent builds the formatted help string from the application's keymap.
 func (m Model) generateHelpContent() string {
-	helpSections := keys.FullHelp()
+	helpSections := m.keymap.FullHelp()
 	var renderedSections []string
 	for _, section := range helpSections {
 		title := m.theme.HelpTitle.

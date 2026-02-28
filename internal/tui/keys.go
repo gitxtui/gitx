@@ -1,54 +1,14 @@
 package tui
 
-import "github.com/charmbracelet/bubbles/key"
+import (
+	"strings"
 
-// KeyMap defines the keybindings for the application.
-type KeyMap struct {
-	// miscellaneous keybindings
-	Quit       key.Binding
-	Escape     key.Binding
-	ToggleHelp key.Binding
+	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
+)
 
-	// keybindings for changing theme
-	SwitchTheme key.Binding
-
-	// keybindings for navigation
-	FocusNext  key.Binding
-	FocusPrev  key.Binding
-	FocusZero  key.Binding
-	FocusOne   key.Binding
-	FocusTwo   key.Binding
-	FocusThree key.Binding
-	FocusFour  key.Binding
-	FocusFive  key.Binding
-	FocusSix   key.Binding
-	Up         key.Binding
-	Down       key.Binding
-
-	// Keybindings for FilesPanel
-	StageItem key.Binding
-	StageAll  key.Binding
-	Discard   key.Binding
-	Stash     key.Binding
-	StashAll  key.Binding
-	Commit    key.Binding
-
-	// Keybindings for BranchesPanel
-	Checkout     key.Binding
-	NewBranch    key.Binding
-	DeleteBranch key.Binding
-	RenameBranch key.Binding
-
-	// Keybindings for CommitsPanel
-	AmendCommit   key.Binding
-	Revert        key.Binding
-	ResetToCommit key.Binding
-
-	// Keybindings for StashPanel
-	StashApply key.Binding
-	StashPop   key.Binding
-	StashDrop  key.Binding
-}
+// KeyMap stores keybindings by action name.
+type KeyMap map[string]string
 
 // HelpSection is a struct to hold a title and keybindings for a help section.
 type HelpSection struct {
@@ -56,214 +16,214 @@ type HelpSection struct {
 	Bindings []key.Binding
 }
 
+var keybindingDescriptions = map[string]string{
+	"quit":              "quit",
+	"escape":            "cancel",
+	"toggle_help":       "toggle help",
+	"switch_theme":      "switch theme",
+	"focus_next":        "Focus Next Window",
+	"focus_prev":        "Focus Previous Window",
+	"focus_main":        "Focus Main Window",
+	"focus_status":      "Focus Status Window",
+	"focus_files":       "Focus Files Window",
+	"focus_branches":    "Focus Branches Window",
+	"focus_commits":     "Focus Commits Window",
+	"focus_stash":       "Focus Stash Window",
+	"focus_command_log": "Focus Command log Window",
+	"up":                "up",
+	"down":              "down",
+	"stage_item":        "Stage Item",
+	"stage_all":         "Stage All",
+	"discard":           "Discard",
+	"stash":             "Stash",
+	"stash_all":         "Stash all",
+	"commit":            "Commit",
+	"checkout":          "Checkout",
+	"new_branch":        "New Branch",
+	"delete_branch":     "Delete",
+	"rename_branch":     "Rename",
+	"amend_commit":      "Amend",
+	"revert":            "Revert",
+	"reset_to_commit":   "Reset to Commit",
+	"stash_apply":       "Apply",
+	"stash_pop":         "Pop",
+	"stash_drop":        "Drop",
+}
+
+func keySpec(keys ...string) string {
+	return strings.Join(keys, ",")
+}
+
+// DefaultKeybindings returns default keybindings for each action.
+func DefaultKeybindings() map[string]string {
+	return map[string]string{
+		"quit":              keySpec("q", "ctrl+c"),
+		"escape":            keySpec("esc"),
+		"toggle_help":       keySpec("?"),
+		"switch_theme":      keySpec("ctrl+t"),
+		"focus_next":        keySpec("tab"),
+		"focus_prev":        keySpec("shift+tab"),
+		"focus_main":        keySpec("0"),
+		"focus_status":      keySpec("1"),
+		"focus_files":       keySpec("2"),
+		"focus_branches":    keySpec("3"),
+		"focus_commits":     keySpec("4"),
+		"focus_stash":       keySpec("5"),
+		"focus_command_log": keySpec("6"),
+		"up":                keySpec("k", "up"),
+		"down":              keySpec("j", "down"),
+		"stage_item":        keySpec("a"),
+		"stage_all":         keySpec("space"),
+		"discard":           keySpec("d"),
+		"stash":             keySpec("s"),
+		"stash_all":         keySpec("S"),
+		"commit":            keySpec("c"),
+		"checkout":          keySpec("enter"),
+		"new_branch":        keySpec("n"),
+		"delete_branch":     keySpec("d"),
+		"rename_branch":     keySpec("r"),
+		"amend_commit":      keySpec("A"),
+		"revert":            keySpec("v"),
+		"reset_to_commit":   keySpec("R"),
+		"stash_apply":       keySpec("a"),
+		"stash_pop":         keySpec("p"),
+		"stash_drop":        keySpec("d"),
+	}
+}
+
+// DefaultKeyMap returns default keybindings.
+func DefaultKeyMap() KeyMap {
+	defaults := DefaultKeybindings()
+	result := make(KeyMap, len(defaults))
+	for k, v := range defaults {
+		result[k] = v
+	}
+	return result
+}
+
+// MergeKeybindings merges user overrides into defaults and ignores empty override values.
+func MergeKeybindings(defaults, overrides map[string]string) map[string]string {
+	result := make(map[string]string, len(defaults)+len(overrides))
+	for k, v := range defaults {
+		result[k] = v
+	}
+	for k, v := range overrides {
+		if strings.TrimSpace(v) != "" {
+			result[k] = v
+		}
+	}
+	return result
+}
+
+// KeyMapFromConfig returns keybindings with user overrides applied on top of defaults.
+func KeyMapFromConfig(overrides map[string]string) KeyMap {
+	merged := MergeKeybindings(DefaultKeybindings(), overrides)
+	result := make(KeyMap, len(merged))
+	for k, v := range merged {
+		result[k] = v
+	}
+	if alias, ok := result["open"]; ok && strings.TrimSpace(result["checkout"]) == "" {
+		result["checkout"] = alias
+	}
+	return result
+}
+
+func parseConfiguredKeys(configured string) ([]string, bool) {
+	parts := strings.Split(configured, ",")
+	keys := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			keys = append(keys, trimmed)
+		}
+	}
+	return keys, len(keys) > 0
+}
+
+func helpLabel(keys []string) string {
+	return strings.Join(keys, "/")
+}
+
+func (k KeyMap) binding(action string) key.Binding {
+	spec := strings.TrimSpace(k[action])
+	if spec == "" {
+		spec = DefaultKeybindings()[action]
+	}
+	resolvedKeys, ok := parseConfiguredKeys(spec)
+	if !ok {
+		resolvedKeys, _ = parseConfiguredKeys(DefaultKeybindings()[action])
+	}
+	desc := keybindingDescriptions[action]
+	return key.NewBinding(
+		key.WithKeys(resolvedKeys...),
+		key.WithHelp(helpLabel(resolvedKeys), desc),
+	)
+}
+
+// Matches reports whether the message matches the configured key spec.
+func Matches(msg tea.KeyMsg, spec string) bool {
+	resolvedKeys, ok := parseConfiguredKeys(spec)
+	if !ok {
+		return false
+	}
+	return key.Matches(msg, key.NewBinding(key.WithKeys(resolvedKeys...)))
+}
+
+func (k KeyMap) bindings(actions ...string) []key.Binding {
+	result := make([]key.Binding, 0, len(actions))
+	for _, action := range actions {
+		result = append(result, k.binding(action))
+	}
+	return result
+}
+
 // FullHelp returns a structured slice of HelpSection, which is used to build
 // the full help view.
 func (k KeyMap) FullHelp() []HelpSection {
 	return []HelpSection{
-		{
-			Title: "Navigation",
-			Bindings: []key.Binding{
-				k.FocusNext, k.FocusPrev, k.FocusZero, k.FocusOne,
-				k.FocusTwo, k.FocusThree, k.FocusFour, k.FocusFive,
-				k.FocusSix, k.Up, k.Down,
-			},
-		},
-		{
-			Title: "Files",
-			Bindings: []key.Binding{
-				k.Commit, k.Stash, k.StashAll, k.StageItem,
-				k.StageAll, k.Discard,
-			},
-		},
-		{
-			Title:    "Branches",
-			Bindings: []key.Binding{k.Checkout, k.NewBranch, k.DeleteBranch, k.RenameBranch},
-		},
-		{
-			Title:    "Commits",
-			Bindings: []key.Binding{k.AmendCommit, k.Revert, k.ResetToCommit},
-		},
-		{
-			Title:    "Stash",
-			Bindings: []key.Binding{k.StashApply, k.StashPop, k.StashDrop},
-		},
-		{
-			Title:    "Misc",
-			Bindings: []key.Binding{k.SwitchTheme, k.ToggleHelp, k.Escape, k.Quit},
-		},
+		{Title: "Navigation", Bindings: k.bindings(
+			"focus_next", "focus_prev", "focus_main", "focus_status",
+			"focus_files", "focus_branches", "focus_commits", "focus_stash",
+			"focus_command_log", "up", "down",
+		)},
+		{Title: "Files", Bindings: k.bindings("commit", "stash", "stash_all", "stage_item", "stage_all", "discard")},
+		{Title: "Branches", Bindings: k.bindings("checkout", "new_branch", "delete_branch", "rename_branch")},
+		{Title: "Commits", Bindings: k.bindings("amend_commit", "revert", "reset_to_commit")},
+		{Title: "Stash", Bindings: k.bindings("stash_apply", "stash_pop", "stash_drop")},
+		{Title: "Misc", Bindings: k.bindings("switch_theme", "toggle_help", "escape", "quit")},
 	}
 }
 
 // ShortHelp returns a slice of key.Binding containing help for default keybindings.
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.ToggleHelp, k.Escape, k.Quit}
+	return k.bindings("toggle_help", "escape", "quit")
 }
 
 // HelpViewHelp returns a slice of key.Binding containing help for keybindings related to Help View.
 func (k KeyMap) HelpViewHelp() []key.Binding {
-	return []key.Binding{k.ToggleHelp, k.Escape, k.Quit}
+	return k.ShortHelp()
 }
 
 // FilesPanelHelp returns a slice of key.Binding containing help for keybindings related to Files Panel.
 func (k KeyMap) FilesPanelHelp() []key.Binding {
-	help := []key.Binding{k.Commit, k.Stash, k.Discard, k.StageItem}
+	help := k.bindings("commit", "stash", "discard", "stage_item")
 	return append(help, k.ShortHelp()...)
 }
 
 // BranchesPanelHelp returns a slice of key.Binding for the Branches Panel help bar.
 func (k KeyMap) BranchesPanelHelp() []key.Binding {
-	help := []key.Binding{k.Checkout, k.NewBranch, k.DeleteBranch}
+	help := k.bindings("checkout", "new_branch", "delete_branch")
 	return append(help, k.ShortHelp()...)
 }
 
 // CommitsPanelHelp returns a slice of key.Binding for the Commits Panel help bar.
 func (k KeyMap) CommitsPanelHelp() []key.Binding {
-	help := []key.Binding{k.AmendCommit, k.Revert, k.ResetToCommit}
+	help := k.bindings("amend_commit", "revert", "reset_to_commit")
 	return append(help, k.ShortHelp()...)
 }
 
 // StashPanelHelp returns a slice of key.Binding for the Stash Panel help bar.
 func (k KeyMap) StashPanelHelp() []key.Binding {
-	help := []key.Binding{k.StashApply, k.StashPop, k.StashDrop}
+	help := k.bindings("stash_apply", "stash_pop", "stash_drop")
 	return append(help, k.ShortHelp()...)
-}
-
-// DefaultKeyMap returns a set of default keybindings.
-func DefaultKeyMap() KeyMap {
-	return KeyMap{
-		// misc
-		Quit: key.NewBinding(
-			key.WithKeys("q", "ctrl+c"),
-			key.WithHelp("q", "quit"),
-		),
-		Escape: key.NewBinding(
-			key.WithKeys("esc"),
-			key.WithHelp("<esc>", "cancel"),
-		),
-		ToggleHelp: key.NewBinding(
-			key.WithKeys("?"),
-			key.WithHelp("?", "toggle help"),
-		),
-
-		// theme
-		SwitchTheme: key.NewBinding(
-			key.WithKeys("ctrl+t"),
-			key.WithHelp("<c+t>", "switch theme"),
-		),
-
-		// navigation
-		FocusNext: key.NewBinding(
-			key.WithKeys("tab"),
-			key.WithHelp("tab", "Focus Next Window"),
-		),
-		FocusPrev: key.NewBinding(
-			key.WithKeys("shift+tab"),
-			key.WithHelp("<s+tab>", "Focus Previous Window"),
-		),
-		FocusZero: key.NewBinding(
-			key.WithKeys("0"),
-			key.WithHelp("0", "Focus Main Window"),
-		),
-		FocusOne: key.NewBinding(
-			key.WithKeys("1"),
-			key.WithHelp("1", "Focus Status Window"),
-		),
-		FocusTwo: key.NewBinding(
-			key.WithKeys("2"),
-			key.WithHelp("2", "Focus Files Window"),
-		),
-		FocusThree: key.NewBinding(
-			key.WithKeys("3"),
-			key.WithHelp("3", "Focus Branches Window"),
-		),
-		FocusFour: key.NewBinding(
-			key.WithKeys("4"),
-			key.WithHelp("4", "Focus Commits Window"),
-		),
-		FocusFive: key.NewBinding(
-			key.WithKeys("5"),
-			key.WithHelp("5", "Focus Stash Window"),
-		),
-		FocusSix: key.NewBinding(
-			key.WithKeys("6"),
-			key.WithHelp("6", "Focus Command log Window"),
-		),
-		Up: key.NewBinding(
-			key.WithKeys("k", "up"),
-			key.WithHelp("k/↑", "up"),
-		),
-		Down: key.NewBinding(
-			key.WithKeys("j", "down"),
-			key.WithHelp("j/↓", "down"),
-		),
-
-		// FilesPanel
-		StageItem: key.NewBinding(
-			key.WithKeys("a"),
-			key.WithHelp("a", "Stage Item"),
-		),
-		StageAll: key.NewBinding(
-			key.WithKeys("space"),
-			key.WithHelp("<space>", "Stage All"),
-		),
-		Discard: key.NewBinding(
-			key.WithKeys("d"),
-			key.WithHelp("d", "Discard"),
-		),
-		Stash: key.NewBinding(
-			key.WithKeys("s"),
-			key.WithHelp("s", "Stash"),
-		),
-		StashAll: key.NewBinding(
-			key.WithKeys("S"),
-			key.WithHelp("S", "Stash all"),
-		),
-		Commit: key.NewBinding(
-			key.WithKeys("c"),
-			key.WithHelp("c", "Commit"),
-		),
-
-		Checkout: key.NewBinding(
-			key.WithKeys("enter"),
-			key.WithHelp("enter", "Checkout"),
-		),
-		NewBranch: key.NewBinding(
-			key.WithKeys("n"),
-			key.WithHelp("n", "New Branch"),
-		),
-		DeleteBranch: key.NewBinding(
-			key.WithKeys("d"),
-			key.WithHelp("d", "Delete"),
-		),
-		RenameBranch: key.NewBinding(
-			key.WithKeys("r"),
-			key.WithHelp("r", "Rename"),
-		),
-
-		AmendCommit: key.NewBinding(
-			key.WithKeys("A"),
-			key.WithHelp("A", "Amend"),
-		),
-		Revert: key.NewBinding(
-			key.WithKeys("v"),
-			key.WithHelp("v", "Revert"),
-		),
-		ResetToCommit: key.NewBinding(
-			key.WithKeys("R"),
-			key.WithHelp("R", "Reset to Commit"),
-		),
-
-		StashApply: key.NewBinding(
-			key.WithKeys("a"),
-			key.WithHelp("a", "Apply"),
-		),
-		StashPop: key.NewBinding(
-			key.WithKeys("p"),
-			key.WithHelp("p", "Pop"),
-		),
-		StashDrop: key.NewBinding(
-			key.WithKeys("d"),
-			key.WithHelp("d", "Drop"),
-		),
-	}
 }

@@ -49,12 +49,17 @@ type Model struct {
 	confirmCallback  func(bool) tea.Cmd
 	// New fields for command history
 	CommandHistory []string
+	keymap         KeyMap
 }
 
 // initialModel creates the initial state of the application.
 func initialModel() Model {
 	themeNames := ThemeNames() //built-in themes load
-	cfg, _ := load_config()
+	cfg, err := load_config()
+	if err != nil {
+		cfg = &appConfig{Theme: DefaultThemeName}
+	}
+	keymap := KeyMapFromConfig(cfg.Keybindings)
 
 	var selectedThemeName string
 	if t, ok := Themes[cfg.Theme]; ok {
@@ -115,6 +120,7 @@ func initialModel() Model {
 		textInput:         ti,
 		descriptionInput:  ta,
 		CommandHistory:    []string{},
+		keymap:            keymap,
 	}
 }
 
@@ -151,14 +157,14 @@ func (m *Model) nextTheme() {
 func (m *Model) panelShortHelp() []key.Binding {
 	switch m.focusedPanel {
 	case FilesPanel:
-		return keys.FilesPanelHelp()
+		return m.keymap.FilesPanelHelp()
 	case BranchesPanel:
-		return keys.BranchesPanelHelp()
+		return m.keymap.BranchesPanelHelp()
 	case CommitsPanel:
-		return keys.CommitsPanelHelp()
+		return m.keymap.CommitsPanelHelp()
 	case StashPanel:
-		return keys.StashPanelHelp()
+		return m.keymap.StashPanelHelp()
 	default:
-		return keys.ShortHelp()
+		return m.keymap.ShortHelp()
 	}
 }
