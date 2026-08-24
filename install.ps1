@@ -24,11 +24,17 @@ function Get-LatestRelease {
 }
 
 function Main {
-    $os = "windows"
+    $os = "Windows"
     $arch = Get-Arch
+
+    switch ($arch) {
+        "amd64" { $releaseArch = "x86_64" }
+        "arm64" { $releaseArch = "arm64" }
+    }
+
     $version = Get-LatestRelease
     $versionNum = $version -replace "^v", ""
-    $filename = "gitx_${versionNum}_${os}_${arch}.zip"
+    $filename = "gitx_${os}_${releaseArch}.zip"
     $downloadUrl = "https://github.com/$repo/releases/download/$version/$filename"
 
     Write-Host "Downloading gitx $version for $os/$arch..."
